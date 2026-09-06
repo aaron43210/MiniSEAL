@@ -1,0 +1,29 @@
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment
+.env
+venv/
+env/
+.venv/
+
+# IDEs
+.vscode/
+.idea/
+.DS_Store
+
+# Large Data & Checkpoints (DO NOT PUSH)
+data/
+checkpoints/
+runs/
+artifacts/
+
+# Logs & Databases
+*.log
+quarantine.db
+
+# Scratch files
+scratch*.md
+scripts/remove_emojis.py

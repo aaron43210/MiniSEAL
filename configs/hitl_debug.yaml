@@ -1,0 +1,24 @@
+paths:
+  db_path: "data/quarantine_store.db"
+  adapters_dir: "checkpoints/adapters"
+  base_model_path: "checkpoints/model_aligned_dpo.pt"
+  tokenizer_path: "artifacts/tokenizer/tokenizer.json"
+
+hyperparameters:
+  lora_r: 16
+  lora_alpha: 32
+  lr: 2e-4
+  epochs: 5
+  batch_size: 2
+
+security:
+  blocked_keywords:
+    - "admin_override"
+    - "sudo"
+    - "password"
+    - "api_key"
+    - "credentials"
+  flagged_sensitive_topics:
+    - "exploit"
+    - "hack"
+    - "bypass"

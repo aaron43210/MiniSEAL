@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MiniSEAL Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/ui/index.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="logo"></div>
+                <h2>MiniSEAL</h2>
+            </div>
+            
+            <nav class="menu">
+                <a href="#" id="tab-pending" class="active">Pending Review</a>
+                <a href="#" id="tab-approved">Approved Pairs</a>
+                <a href="#" id="tab-metrics">Model Metrics</a>
+            </nav>
+
+            <div class="training-card">
+                <h3>Adaptation Engine</h3>
+                <p>Train LoRA on approved edits</p>
+                <button id="train-lora-btn" class="glow-btn">Train LoRA Now</button>
+                <div id="train-status" class="status-msg"></div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header>
+                <h1>Self-Adaptation Proposals</h1>
+                <div class="stats">
+                    <span id="pending-count">0 Pending</span>
+                </div>
+            </header>
+
+            <div class="grid" id="proposals-grid">
+                <!-- Proposal Cards injected here by JS -->
+            </div>
+        </main>
+    </div>
+    
+    <script src="/ui/app.js"></script>
+</body>
+</html>

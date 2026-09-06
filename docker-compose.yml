@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  tokenizer-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    command: python services/tokenizer_service/app.py
+    ports:
+      - "8001:8001"
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+
+  alignment-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    command: python src/alignment/alignment_service.py
+    ports:
+      - "8002:8002"
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    depends_on:
+      - tokenizer-service
+
+  adaptation-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    command: python src/adaptation/adaptation_service.py
+    ports:
+      - "8003:8003"
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    depends_on:
+      - alignment-service
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    command: python src/api/gateway.py
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    depends_on:
+      - tokenizer-service
+      - alignment-service
+      - adaptation-service
+      - hitl-service
+
+  hitl-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    command: python services/hitl_service/app.py
+    ports:
+      - "8006:8006"
+    environment:
+      - USE_CUDA=0
+    volumes:
+      - .:/workspace
+    working_dir: /workspace

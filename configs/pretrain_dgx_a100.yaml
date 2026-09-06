@@ -1,0 +1,40 @@
+seed: 42
+tokenizer_config: "artifacts/tokenizer/tokenizer_config.json"
+tokenizer_path: "artifacts/tokenizer/tokenizer.json"
+
+model:
+  block_size: 512
+  n_layer: 8
+  n_head: 8
+  n_embd: 512
+  dropout: 0.1
+  bias: false
+  multiple_of: 256
+  norm_eps: 1.0e-5
+  rope_theta: 10000.0
+
+data:
+  train_bin: "data/raw/train.bin"
+  train_meta: "data/raw/train.meta.json"
+  val_bin: "data/raw/val.bin"
+  val_meta: "data/raw/val.meta.json"
+
+train:
+  out_dir: "checkpoints/dgx_pretrain"
+  resume_from: null
+  precision: "bf16"
+  learning_rate: 3.0e-4
+  min_lr: 3.0e-5
+  warmup_steps: 100
+  max_steps: 5000
+  weight_decay: 0.1
+  beta1: 0.9
+  beta2: 0.95
+  micro_batch_size: 16
+  grad_accum_steps: 8
+  num_workers: 4
+  grad_clip: 1.0
+  log_interval: 10
+  eval_interval: 200
+  eval_iters: 20
+  save_interval: 1000
