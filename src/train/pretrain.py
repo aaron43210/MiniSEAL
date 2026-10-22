@@ -95,7 +95,9 @@ def get_lr(step: int, cfg: dict) -> float:
     max_steps = cfg["max_steps"]
 
     if step < warmup_steps:
-        return max_lr * step / max(1, warmup_steps)
+        # step + 1 so the very first optimizer step gets a non-zero LR
+        # (otherwise step 0 trains with lr=0 and is wasted).
+        return max_lr * (step + 1) / max(1, warmup_steps)
 
     if step > max_steps:
         return min_lr
@@ -153,6 +155,7 @@ def save_checkpoint(
     step: int,
     cfg: dict,
     out_dir: str,
+    scaler=None,
 ):
     """
     Input:
@@ -177,6 +180,8 @@ def save_checkpoint(
         "model_config": raw_model.config_dict(),
         "config": cfg,
     }
+    if scaler is not None:
+        checkpoint["scaler"] = scaler.state_dict()
 
     ensure_dir(out_dir)
 
@@ -388,6 +393,15 @@ def main():
 
     if has_checkpoint:
         ckpt = torch.load(resume_from, map_location="cpu")
+        # Guard against silent architecture drift between the YAML and the checkpoint.
+        ckpt_cfg = ckpt.get("model_config")
+        if ckpt_cfg is not None and dict(ckpt_cfg) != model_config.__dict__:
+            raise ValueError(
+                "Checkpoint model_config does not match the current config. "
+                "Resuming would load weights into a different architecture.\n"
+                f"  checkpoint: {dict(ckpt_cfg)}\n"
+                f"  current:    {model_config.__dict__}"
+            )
         model.load_state_dict(ckpt["model"])
         start_step = ckpt["step"] + 1
 
@@ -417,9 +431,15 @@ def main():
 
     scaler = torch.cuda.amp.GradScaler(enabled=(precision == "fp16" and use_amp))
 
+    if has_checkpoint and "scaler" in ckpt:
+        scaler.load_state_dict(ckpt["scaler"])
+
     model.train()
 
     train_iter = iter(train_loader)
+    epoch = 0
+    if train_sampler is not None:
+        train_sampler.set_epoch(epoch)
 
     progress = tqdm(
         range(start_step, train_cfg["max_steps"]),
@@ -428,9 +448,6 @@ def main():
     )
 
     for step in progress:
-        if train_sampler is not None:
-            train_sampler.set_epoch(step)
-
         lr = get_lr(step, train_cfg)
 
         for param_group in optimizer.param_groups:
@@ -444,6 +461,11 @@ def main():
             try:
                 x, y = next(train_iter)
             except StopIteration:
+                # New pass over the data: bump the sampler epoch so DDP shards
+                # reshuffle differently each epoch instead of repeating order.
+                epoch += 1
+                if train_sampler is not None:
+                    train_sampler.set_epoch(epoch)
                 train_iter = iter(train_loader)
                 x, y = next(train_iter)
 
@@ -551,6 +573,7 @@ def main():
                 step=step,
                 cfg=cfg,
                 out_dir=out_dir,
+                scaler=scaler,
             )
 
     save_checkpoint(
@@ -559,6 +582,7 @@ def main():
         step=train_cfg["max_steps"],
         cfg=cfg,
         out_dir=out_dir,
+        scaler=scaler,
     )
 
     cleanup_distributed(distributed)

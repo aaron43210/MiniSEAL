@@ -116,6 +116,7 @@ class DecoderOnlyTransformer(nn.Module):
         max_new_tokens: int,
         temperature: float = 1.0,
         top_k: Optional[int] = None,
+        eos_token_id: Optional[int] = None,
     ) -> torch.Tensor:
         """
         Input:
@@ -123,11 +124,18 @@ class DecoderOnlyTransformer(nn.Module):
             max_new_tokens: number of tokens to generate.
             temperature: sampling temperature.
             top_k: keep only top-k logits if provided.
+            eos_token_id: stop generation if this token is produced.
 
         Output:
             Generated token IDs: [batch, seq + max_new_tokens]
         """
         self.eval()
+
+        # Track which sequences in the batch have already emitted EOS so we can
+        # stop early only once *every* sequence is finished (single-example
+        # callers get the same behavior with batch size 1).
+        batch = input_ids.size(0)
+        finished = torch.zeros(batch, dtype=torch.bool, device=input_ids.device)
 
         for _ in range(max_new_tokens):
             context = input_ids[:, -self.config.block_size:]
@@ -143,6 +151,11 @@ class DecoderOnlyTransformer(nn.Module):
             next_token = torch.multinomial(probs, num_samples=1)
 
             input_ids = torch.cat([input_ids, next_token], dim=1)
+
+            if eos_token_id is not None:
+                finished = finished | (next_token.squeeze(-1) == eos_token_id)
+                if bool(finished.all()):
+                    break
 
         return input_ids
 

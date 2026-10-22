@@ -41,8 +41,13 @@ class RMSNorm(nn.Module):
         self.weight = nn.Parameter(torch.ones(dim))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        rms = torch.rsqrt(x.pow(2).mean(dim=-1, keepdim=True) + self.eps)
-        return self.weight * x * rms
+        # Upcast to float32 for the variance computation: under AMP (bf16/fp16)
+        # the mean-of-squares can lose precision / overflow, which destabilizes
+        # normalization. LLaMA-style: normalize in fp32, cast back, then scale.
+        orig_dtype = x.dtype
+        x_fp32 = x.float()
+        rms = torch.rsqrt(x_fp32.pow(2).mean(dim=-1, keepdim=True) + self.eps)
+        return self.weight * (x_fp32 * rms).to(orig_dtype)
 
 
 class RotaryEmbedding(nn.Module):

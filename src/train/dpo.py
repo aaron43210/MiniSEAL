@@ -18,15 +18,22 @@ from src.model.llm import DecoderOnlyTransformer
 from src.data.dpo_dataset import DPODataset
 
 def setup():
-    dist.init_process_group("nccl")
-    rank = dist.get_rank()
-    local_rank = int(os.environ["LOCAL_RANK"])
-    world_size = dist.get_world_size()
-    torch.cuda.set_device(local_rank)
-    return rank, local_rank, world_size
+    distributed = "RANK" in os.environ and "WORLD_SIZE" in os.environ
+    if distributed:
+        dist.init_process_group("nccl")
+        rank = dist.get_rank()
+        local_rank = int(os.environ["LOCAL_RANK"])
+        world_size = dist.get_world_size()
+        torch.cuda.set_device(local_rank)
+    else:
+        rank = 0
+        local_rank = 0
+        world_size = 1
+    return distributed, rank, local_rank, world_size
 
-def cleanup():
-    dist.destroy_process_group()
+def cleanup(distributed):
+    if distributed:
+        dist.destroy_process_group()
 
 def get_batch_logps(logits, labels, ignore_index=-100):
     """
@@ -64,7 +71,7 @@ def dpo_loss(
     
     return loss, (pi_logratios > ref_logratios).float().mean()
 
-def load_config(config_path="configs/dpo_dgx_a100.yaml"):
+def load_config(config_path):
     with open(config_path, "r") as f:
         return yaml.safe_load(f)
 
@@ -74,18 +81,26 @@ def get_lr(it, train_cfg):
     lr = train_cfg["learning_rate"]
     min_lr = train_cfg["min_lr"]
     if it < warmup_steps:
-        return lr * it / warmup_steps
+        # it + 1 and a guarded denominator: avoids a wasted lr=0 first step and
+        # a division-by-zero when warmup_steps == 0.
+        return lr * (it + 1) / max(1, warmup_steps)
     if it > max_steps:
         return min_lr
-    decay_ratio = (it - warmup_steps) / (max_steps - warmup_steps)
+    decay_ratio = (it - warmup_steps) / max(1, max_steps - warmup_steps)
     coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))
     return min_lr + coeff * (lr - min_lr)
 
+import argparse
+
 def main():
-    rank, local_rank, world_size = setup()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", type=str, required=True)
+    args = parser.parse_args()
+
+    distributed, rank, local_rank, world_size = setup()
     is_master = rank == 0
 
-    train_cfg = load_config()
+    train_cfg = load_config(args.config)
     out_dir = train_cfg["out_dir"]
     if is_master:
         os.makedirs(out_dir, exist_ok=True)
@@ -114,18 +129,20 @@ def main():
     for param in ref_model.parameters():
         param.requires_grad = False
         
-    model = DDP(model, device_ids=[local_rank])
+    if distributed:
+        model = DDP(model, device_ids=[local_rank])
 
     dataset = DPODataset(
         data_path=train_cfg["dpo_data_path"],
         tokenizer=tokenizer,
         max_len=model_config.block_size
     )
-    sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=True)
+    sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=True) if distributed else None
     dataloader = DataLoader(
         dataset,
         batch_size=train_cfg["micro_batch_size"],
         sampler=sampler,
+        shuffle=(sampler is None),
         num_workers=train_cfg["num_workers"],
         pin_memory=True
     )
@@ -166,7 +183,8 @@ def main():
             try:
                 batch = next(data_iter)
             except StopIteration:
-                sampler.set_epoch(step)
+                if sampler is not None:
+                    sampler.set_epoch(step)
                 data_iter = iter(dataloader)
                 batch = next(data_iter)
 
@@ -220,8 +238,9 @@ def main():
 
     if is_master:
         print("Saving final DPO model...")
+        raw_model = model.module if hasattr(model, "module") else model
         checkpoint = {
-            "model": model.module.state_dict(),
+            "model": raw_model.state_dict(),
             "model_config": model_config.__dict__,
             "optimizer": optimizer.state_dict(),
             "step": step
@@ -229,7 +248,7 @@ def main():
         torch.save(checkpoint, os.path.join(out_dir, "latest_dpo.pt"))
         print("Done!")
 
-    cleanup()
+    cleanup(distributed)
 
 if __name__ == "__main__":
     main()

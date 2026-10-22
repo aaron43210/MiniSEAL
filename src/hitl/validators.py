@@ -8,9 +8,15 @@ class RiskValidator:
         self.blocked_keywords = [kw.lower() for kw in blocked_keywords]
         self.sensitive_topics = [st.lower() for st in sensitive_topics]
         
-        # Regex to detect emails and IPv4/IPv6 addresses
+        # Regex to detect emails and IPv4 addresses.
+        # Each IPv4 octet is constrained to 0-255 and the whole match must be
+        # bounded by non-dot/digit characters, so version strings like
+        # "3.11.4.2" or "1.0.0.0" (and longer dotted numbers) don't false-positive.
         self.email_regex = re.compile(r'[\w\.-]+@[\w\.-]+\.\w+')
-        self.ip_regex = re.compile(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b')
+        _octet = r'(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)'
+        self.ip_regex = re.compile(
+            r'(?<![\d.])' + r'\.'.join([_octet] * 4) + r'(?![\d.])'
+        )
 
     def analyze(self, question: str, answer: str) -> Tuple[str, List[str]]:
         """
