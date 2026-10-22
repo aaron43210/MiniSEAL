@@ -1,0 +1,22 @@
+# DPO (Direct Preference Optimization) on HF Qwen + LoRA.
+# Run: python3 -m src.train.dpo_qwen --config configs/dpo_qwen.yaml
+out_dir: "model_weights/dgx_dpo_qwen"
+seed: 42
+pretrained_model_path: "Qwen/Qwen2.5-1.5B-Instruct"
+
+# Preference data: each line {"prompt": ..., "chosen": ..., "rejected": ...}
+dpo_data_path: "data/alignment/preferences.jsonl"
+max_pairs: 500             # cap for a quick run (null = all 1000)
+max_length: 1024           # skip pairs whose tokenized length exceeds this
+
+# Optional: start from your SFT adapter so DPO refines the aligned model.
+# Point this at e.g. model_weights/dgx_sft_rag/final_adapter (null = base Qwen).
+sft_adapter_path: null
+
+# DPO hyperparameters
+beta: 0.1
+epochs: 1
+learning_rate: 5.0e-6
+lora_r: 16
+lora_alpha: 32
+lora_dropout: 0.05

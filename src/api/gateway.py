@@ -34,7 +34,14 @@ async def health_all():
     async with httpx.AsyncClient() as client:
         for name, url in SERVICES.items():
             try:
-                response = await client.get(f"{url}/docs", timeout=2.0)
+                # Prefer the dedicated /health probe; fall back to /docs for any
+                # service that doesn't expose one (e.g. the tokenizer service).
+                try:
+                    response = await client.get(f"{url}/health", timeout=2.0)
+                    if response.status_code == 404:
+                        response = await client.get(f"{url}/docs", timeout=2.0)
+                except httpx.HTTPError:
+                    response = await client.get(f"{url}/docs", timeout=2.0)
                 status[name] = "ONLINE" if response.status_code == 200 else "ERROR"
             except Exception:
                 status[name] = "OFFLINE"

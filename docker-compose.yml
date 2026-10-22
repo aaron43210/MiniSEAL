@@ -1,5 +1,8 @@
 version: '3.8'
 
+# LIVE services (Qwen-backed, runnable). The custom from-scratch .pt services
+# (alignment, adaptation, gateway) are an OFFLINE learning track and are NOT
+# started here -- see the note below and README "Track A".
 services:
   tokenizer-service:
     build:
@@ -12,47 +15,15 @@ services:
       - .:/workspace
     working_dir: /workspace
 
-  alignment-service:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-    command: python src/alignment/alignment_service.py
-    ports:
-      - "8002:8002"
-    volumes:
-      - .:/workspace
-    working_dir: /workspace
-    depends_on:
-      - tokenizer-service
-
-  adaptation-service:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-    command: python src/adaptation/adaptation_service.py
-    ports:
-      - "8003:8003"
-    volumes:
-      - .:/workspace
-    working_dir: /workspace
-    depends_on:
-      - alignment-service
-
-  api-gateway:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-    command: python src/api/gateway.py
-    ports:
-      - "8080:8080"
-    volumes:
-      - .:/workspace
-    working_dir: /workspace
-    depends_on:
-      - tokenizer-service
-      - alignment-service
-      - adaptation-service
-      - hitl-service
+  # --- OFFLINE / from-scratch track (NOT started by `docker-compose up`) ---
+  # alignment-service (:8002 /sft /dpo), adaptation-service (:8003 /adapt), and
+  # api-gateway (:8080 pipeline) run the custom DecoderOnlyTransformer and need
+  # trained .pt checkpoints produced on the DGX (gitignored, not in the repo).
+  # They are kept in the repo as a learning track but excluded from the live
+  # compose. To run one manually once a checkpoint exists:
+  #   python src/alignment/alignment_service.py
+  #   python src/adaptation/adaptation_service.py
+  #   python src/api/gateway.py
 
   hitl-service:
     build:

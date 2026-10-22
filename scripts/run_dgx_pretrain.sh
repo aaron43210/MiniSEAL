@@ -1,11 +1,12 @@
 #!/bin/bash
-# Submit script or local launch script for DGX A100
-
-echo "Starting distributed pretraining on DGX A100..."
-
-# Example assuming 8 GPUs on a single node
-python -m torch.distributed.run --nproc_per_node=8 \
+# From-scratch pretraining of the custom ~91M decoder-only LLM on the DGX.
+# Auto-detects free GPUs (>=10GB) and launches DDP across all of them.
+# Needs: artifacts/tokenizer/* and data/tokenized/{train,val}.bin (already present;
+# regenerate with scripts/run_dgx_tokenize.sh if missing).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+echo "=== From-scratch pretraining -> configs/pretrain_dgx_124M.yaml ==="
+exec bash scripts/auto_train_dgx.sh \
+  --master_port=29501 \
   -m src.train.pretrain \
-  --config configs/pretrain_dgx_a100.yaml
-
-echo "Training complete!"
+  --config configs/pretrain_dgx_124M.yaml

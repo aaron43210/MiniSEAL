@@ -28,7 +28,7 @@ class PathConfig:
     
     RUNS_DIR = os.path.join(SystemConfig.PROJECT_ROOT, "runs")
     DEBUG_LOCAL_DIR = os.path.join(RUNS_DIR, "debug_local")
-    CHECKPOINTS_DIR = os.path.join(SystemConfig.PROJECT_ROOT, "checkpoints")
+    CHECKPOINTS_DIR = os.path.join(SystemConfig.PROJECT_ROOT, "ckpts")
     
     # Tokenizer & Corpus
     TOKENIZER_PATH = os.path.join(SystemConfig.PROJECT_ROOT, "artifacts/tokenizer/tokenizer.json")
@@ -46,16 +46,12 @@ class PathConfig:
     ADAPTED_MODEL_CHECKPOINT = os.path.join(CHECKPOINTS_DIR, "model_adapted_seal.pt")
 
 
-class TrainingHyperparameters:
-    """Hyperparameters matching our model dimensions and budget."""
-    VOCAB_SIZE = 32000
-    MAX_SEQ_LEN = 512
-    D_MODEL = 512
-    N_LAYERS = 8
-    N_HEADS = 8
-    D_FF = 1024
-    BATCH_SIZE = 4
-    LEARNING_RATE = 3e-4
+# NOTE: Model/training hyperparameters are NOT defined here. The real
+# architecture and training schedule are driven entirely by the YAML files in
+# configs/ (e.g. configs/sft_rag_duk.yaml) and loaded via src.model.config.ModelConfig.
+# A previous hardcoded `TrainingHyperparameters` class (D_MODEL=512, N_LAYERS=8, ...)
+# was removed because its values did not match the YAML-driven models and risked
+# silent architecture drift if anything imported it. Define hyperparameters in YAML.
 
 
 # Automatic directory setup on module import

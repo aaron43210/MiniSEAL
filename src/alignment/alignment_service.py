@@ -11,7 +11,7 @@ from typing import List, Dict, Tuple
 import uvicorn
 import copy
 
-from configs.model_config import SystemConfig, PathConfig, TrainingHyperparameters
+from configs.model_config import SystemConfig, PathConfig
 from src.model.llm import DecoderOnlyTransformer
 from src.model.config import ModelConfig
 from tokenizers import Tokenizer
@@ -21,6 +21,12 @@ app = FastAPI(
     description="SFT & DPO Microservice supporting multi-GPU training",
     version="1.0.0"
 )
+
+
+@app.get("/health")
+def health():
+    """Lightweight liveness probe used by the gateway."""
+    return {"status": "ok", "service": "alignment"}
 
 class SFTTrainRequest(BaseModel):
     sft_data: List[Dict[str, str]]
@@ -38,25 +44,30 @@ class DPOTrainRequest(BaseModel):
 
 class SFTDataset(Dataset):
     def __init__(self, data: List[Dict[str, str]], tokenizer: Tokenizer, max_len: int = 512):
+        from src.common.prompts import format_prompt, resolve_eos_id, resolve_pad_id
         self.samples = []
+        eos_id = resolve_eos_id(tokenizer)
+        pad_id = resolve_pad_id(tokenizer)
         for item in data:
-            prompt = item["prompt"]
+            prompt = format_prompt(item["prompt"])
             response = item["response"]
-            
+
             enc_prompt = tokenizer.encode(prompt).ids
-            enc_response = tokenizer.encode(response).ids + [tokenizer.token_to_id("<|eos|>")]
-            
+            enc_response = tokenizer.encode(response).ids
+            if eos_id is not None:
+                enc_response = enc_response + [eos_id]
+
             input_ids = enc_prompt + enc_response
             labels = [-100] * len(enc_prompt) + enc_response
-            
+
             if len(input_ids) > max_len:
                 input_ids = input_ids[:max_len]
                 labels = labels[:max_len]
             else:
                 pad_len = max_len - len(input_ids)
-                input_ids = input_ids + [tokenizer.token_to_id("<|pad|>")] * pad_len
+                input_ids = input_ids + [pad_id] * pad_len
                 labels = labels + [-100] * pad_len
-                
+
             self.samples.append((torch.tensor(input_ids, dtype=torch.long), torch.tensor(labels, dtype=torch.long)))
 
     def __len__(self):
@@ -68,17 +79,22 @@ class SFTDataset(Dataset):
 
 class DPODataset(Dataset):
     def __init__(self, data: List[Dict[str, str]], tokenizer: Tokenizer, max_len: int = 512):
+        from src.common.prompts import format_prompt, resolve_eos_id, resolve_pad_id
         self.samples = []
-        pad_token = tokenizer.token_to_id("<|pad|>")
-        
+        pad_token = resolve_pad_id(tokenizer)
+        eos_id = resolve_eos_id(tokenizer)
+
         for item in data:
-            prompt = item["prompt"]
+            prompt = format_prompt(item["prompt"])
             chosen = item["chosen"]
             rejected = item["rejected"]
-            
+
             enc_prompt = tokenizer.encode(prompt).ids
-            enc_chosen = tokenizer.encode(chosen).ids + [tokenizer.token_to_id("<|eos|>")]
-            enc_rejected = tokenizer.encode(rejected).ids + [tokenizer.token_to_id("<|eos|>")]
+            enc_chosen = tokenizer.encode(chosen).ids
+            enc_rejected = tokenizer.encode(rejected).ids
+            if eos_id is not None:
+                enc_chosen = enc_chosen + [eos_id]
+                enc_rejected = enc_rejected + [eos_id]
             
             def pad(ids, labels):
                 if len(ids) > max_len:

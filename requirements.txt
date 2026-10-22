@@ -1,10 +1,21 @@
-torch>=2.1
-numpy>=1.24
-tokenizers>=0.15
-fastapi>=0.110
-uvicorn[standard]>=0.27
-pydantic>=2.0
-pyyaml>=6.0
-tqdm>=4.66
-datasets>=2.16
-httpx>=0.27
+# Pinned for reproducible submission. These are CANDIDATE pins matching the
+# project's TRL (SFTConfig.max_length) API and Python 3.9 on the DGX.
+# AUTHORITATIVE lock: run `bash scripts/freeze_env.sh python3.9` on the DGX node
+# where training actually runs and commit the generated requirements.lock.txt.
+# NOTE: `torch` is tied to the node's CUDA build -- keep whatever is already
+# installed on the DGX; do not reinstall/upgrade it there.
+torch==2.5.1
+numpy==2.0.2
+tokenizers==0.21.0
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+pydantic==2.9.2
+pyyaml==6.0.2
+tqdm==4.67.1
+datasets==3.3.1
+httpx==0.27.2
+transformers==4.49.0
+peft==0.14.0
+trl==0.21.0
+accelerate==1.4.0
+sentencepiece==0.2.0

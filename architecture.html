@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Self-Owned LLM Atlas</title>
+<meta name="description" content="End-to-end interactive architecture map of the self_owned_llm capstone: pretrain, SFT, DPO, SEAL, HITL and serving."/>
+<style>
+:root{
+  --canvas:#020617; --mask:#0F172A; --panel:#0b1324; --ink:#FFFFFF; --muted:#94A3B8;
+  --dim:#475569; --border:#1E293B; --wire:#243049;
+  --fn:#22D3EE; --model:#34D399; --data:#A78BFA; --gate:#FB7185; --service:#FBBF24;
+  --db:#FB923C; --ext:#64748B; --note:#38BDF8;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+:root[data-theme="light"]{
+  --canvas:#eef2f8; --mask:#ffffff; --panel:#ffffff; --ink:#0b1220; --muted:#475569;
+  --dim:#94A3B8; --border:#d7dee9; --wire:#c3cedf;
+  --fn:#0891B2; --model:#059669; --data:#7C3AED; --gate:#E11D48; --service:#B45309;
+  --db:#C2410C; --ext:#64748B; --note:#0369A1;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--canvas);color:var(--ink);font-family:var(--mono);font-size:13px;line-height:1.5}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:16px 20px;border-bottom:1px solid var(--border);background:var(--mask);position:sticky;top:0;z-index:40}
+.brand{display:flex;align-items:center;gap:14px;min-width:0}
+.sigil{width:30px;height:30px;border-radius:7px;flex:0 0 auto;
+  background:conic-gradient(from 210deg,var(--fn),var(--model),var(--data),var(--gate),var(--fn));
+  box-shadow:0 0 0 1px var(--border),0 0 18px rgba(34,211,238,.25)}
+header h1{margin:0;font-size:15px;font-weight:700;letter-spacing:.02em}
+header .sub{margin:2px 0 0;font-size:11px;color:var(--muted);font-weight:400}
+#themeBtn{font-family:var(--mono);font-size:11px;color:var(--ink);background:var(--panel);
+  border:1px solid var(--border);border-radius:8px;padding:8px 12px;cursor:pointer;white-space:nowrap}
+#themeBtn:hover{border-color:var(--fn)}
+#tabs{display:flex;flex-wrap:wrap;gap:6px;padding:12px 20px;border-bottom:1px solid var(--border);
+  background:var(--mask);position:sticky;top:63px;z-index:30}
+.tab{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;
+  color:var(--muted);background:transparent;border:1px solid var(--border);border-radius:999px;
+  padding:7px 14px;cursor:pointer;display:flex;align-items:center;gap:7px}
+.tab .dot{width:7px;height:7px;border-radius:50%}
+.tab:hover{color:var(--ink);border-color:var(--dim)}
+.tab.active{color:var(--canvas);background:var(--ink);border-color:var(--ink)}
+:root[data-theme="light"] .tab.active{color:#fff;background:#0b1220}
+main{display:grid;grid-template-columns:1fr 360px;gap:0;align-items:stretch}
+#stage{position:relative;overflow:auto;padding:0}
+.intro{padding:20px 22px 8px}
+.intro h2{margin:0 0 6px;font-size:18px;letter-spacing:-.01em}
+.intro .lede{color:var(--muted);max-width:78ch;margin:0 0 12px;font-size:12.5px}
+.io{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 6px}
+.io .chip{font-size:10.5px;border:1px solid var(--border);border-radius:8px;padding:6px 10px;background:var(--panel)}
+.io .chip b{letter-spacing:.1em;text-transform:uppercase;font-size:9px;color:var(--muted);display:block;margin-bottom:2px}
+.io .chip.in b{color:var(--data)} .io .chip.out b{color:var(--model)} .io .chip.run b{color:var(--service)}
+.diagram-wrap{position:relative;margin:8px 12px 28px}
+.diagram{position:relative}
+svg.edges{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+svg.edges path{fill:none;stroke:var(--wire);stroke-width:1.6}
+svg.edges path.hot{stroke-width:2.4}
+.node{position:absolute;width:208px;min-height:62px;background:var(--panel);border:1px solid var(--border);
+  border-left-width:3px;border-radius:10px;padding:9px 11px;cursor:pointer;z-index:2;
+  transition:transform .12s,border-color .12s,box-shadow .12s}
+.node:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(0,0,0,.33)}
+.node .nl{font-size:12px;font-weight:700;line-height:1.25;word-break:break-word}
+.node .ns{font-size:9.5px;color:var(--muted);margin-top:3px;word-break:break-all}
+.node .nt{font-size:8px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;opacity:.85;margin-bottom:4px;display:block}
+.node.sel{box-shadow:0 0 0 2px var(--fn),0 10px 26px rgba(0,0,0,.4)}
+.node.dim{opacity:.32}
+.node.planned{border-style:dashed}
+.swim{position:absolute;left:0;top:0;height:100%;border-right:1px dashed var(--border);z-index:0}
+.swimlabel{position:absolute;top:6px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dim);font-weight:700;z-index:1;white-space:nowrap}
+/* type colors */
+.t-fn{border-left-color:var(--fn)} .t-fn .nt{color:var(--fn)}
+.t-model{border-left-color:var(--model)} .t-model .nt{color:var(--model)}
+.t-data{border-left-color:var(--data)} .t-data .nt{color:var(--data)}
+.t-gate{border-left-color:var(--gate)} .t-gate .nt{color:var(--gate)}
+.t-service{border-left-color:var(--service)} .t-service .nt{color:var(--service)}
+.t-db{border-left-color:var(--db)} .t-db .nt{color:var(--db)}
+.t-ext{border-left-color:var(--ext)} .t-ext .nt{color:var(--ext)}
+.t-note{border-left-color:var(--note);border-style:dashed} .t-note .nt{color:var(--note)}
+/* passport */
+#passport{border-left:1px solid var(--border);background:var(--mask);padding:18px 18px 40px;
+  position:sticky;top:116px;align-self:start;height:calc(100vh - 116px);overflow:auto}
+#passport.empty .pp-body{display:none}
+.pp-hint{color:var(--dim);font-size:11.5px;line-height:1.6;border:1px dashed var(--border);border-radius:10px;padding:14px}
+#passport:not(.empty) .pp-hint{display:none}
+.pp-kind{display:inline-block;font-size:9px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;
+  padding:3px 8px;border-radius:999px;border:1px solid var(--border);margin-bottom:10px}
+.pp-title{font-size:16px;font-weight:700;line-height:1.25;margin:0 0 2px;word-break:break-word}
+.pp-file{font-size:10.5px;color:var(--muted);margin:0 0 14px;word-break:break-all}
+.pp-sec{margin:0 0 13px}
+.pp-sec h4{margin:0 0 5px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.pp-sec p{margin:0;font-size:12px;line-height:1.55}
+.pp-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.pp-list li{font-size:11px;background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:5px 8px}
+.pp-link{cursor:pointer;color:var(--fn);text-decoration:none;border:1px solid var(--border)}
+.pp-link:hover{border-color:var(--fn)}
+.pp-tag{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+#legend{position:fixed;right:14px;bottom:14px;background:var(--mask);border:1px solid var(--border);
+  border-radius:12px;padding:10px 12px;z-index:50;box-shadow:0 14px 40px rgba(0,0,0,.35);max-width:220px}
+#legend h5{margin:0 0 7px;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.lg{display:flex;align-items:center;gap:7px;font-size:10.5px;margin:3px 0;color:var(--muted)}
+.lg .sw{width:12px;height:12px;border-radius:3px;border-left:3px solid}
+#legend.min .lgs{display:none}
+#legend .lgtoggle{cursor:pointer;float:right;color:var(--dim)}
+@media(max-width:860px){
+  main{grid-template-columns:1fr}
+  #passport{position:static;height:auto;border-left:none;border-top:1px solid var(--border)}
+  #legend{display:none}
+}
+</style>
+</head>
+<body>
+<header id="top">
+  <div class="brand">
+    <span class="sigil"></span>
+    <div>
+      <h1>SELF-OWNED LLM &middot; ARCHITECTURE ATLAS</h1>
+      <p class="sub">From-scratch pretraining &rarr; Qwen alignment (SFT &middot; DPO &middot; SEAL) &middot; human-governed self-learning</p>
+    </div>
+  </div>
+  <button id="themeBtn" title="Toggle light / dark">◐ theme</button>
+</header>
+<nav id="tabs"></nav>
+<main>
+  <section id="stage"></section>
+  <aside id="passport" class="empty">
+    <div class="pp-hint">Click any node to inspect it — file, purpose, inputs, outputs and connections.</div>
+  </aside>
+</main>
+<div id="legend"></div>
+<script>
+const TYPES={fn:"function",model:"nn module",data:"data / file",gate:"gate",service:"service / endpoint",db:"db table",ext:"external lib",note:"planned"};
+const ATLAS={tabs:[
+
+/* ================= OVERVIEW ================= */
+{id:"overview",name:"Architecture",color:"var(--fn)",
+ title:"The whole system, end to end",
+ lede:"Two tracks share one repo. <b>Track A</b> builds a decoder-only LLM from scratch (tokenizer → pretrain → ~124M .pt) to prove the fundamentals. <b>Track B</b> takes <b>Qwen2.5-1.5B-Instruct</b> and aligns it with LoRA adapters through SFT → DPO → SEAL, then lets the model keep learning under a human-in-the-loop (HITL) governance gate. Every stage emits a small, swappable LoRA adapter; serving loads the base model plus the newest approved adapter. Click any block, then open its tab for the function-level map.",
+ io:{in:"raw text corpus · instruction data · preference pairs · passages+Q&A · human approvals",
+     out:"LoRA adapters (model_weights/) · from-scratch .pt · governed self-learning loop",
+     run:"python3 -m src.train.{sft,dpo_qwen,seal,hitl} · docker-compose up (tokenizer+hitl)"},
+ swims:["SOURCES","BUILD / PRETRAIN","ALIGN","SELF-LEARN","GOVERN","SERVE"],
+ nodes:[
+  {id:"raw",l:"Raw text corpus",s:"data/raw/*.txt",t:"data",c:0,r:0,p:"Plain-text documents that feed the from-scratch tokenizer + pretraining.",i:"—",o:"token bins (Track A)",ca:[],cb:[]},
+  {id:"qwen",l:"Qwen2.5-1.5B-Instruct",s:"HuggingFace Hub (base model)",t:"ext",c:0,r:1,p:"The pretrained base model for the entire live (Track B) pipeline. Downloaded on first use; every alignment stage attaches LoRA on top of it.",i:"—",o:"base weights",ca:[],cb:["SFT","DPO","SEAL","HITL"]},
+  {id:"instr",l:"Instruction + preference data",s:"data/alignment/*.jsonl",t:"data",c:0,r:2,p:"SFT instruction pairs, DPO chosen/rejected preference pairs, SEAL passages+Q&A.",i:"—",o:"training rows",ca:[],cb:["SFT","DPO","SEAL"]},
+  {id:"trackA",l:"Track A · from-scratch",s:"tokenizer → pretrain → .pt",t:"model",c:1,r:0,p:"Build + pretrain a LLaMA-style decoder (~91–124M) with a custom 8k BPE tokenizer. Offline learning track; the .pt is gitignored.",i:"raw corpus",o:"latest.pt checkpoint",go:"pretrain",ca:[],cb:[]},
+  {id:"SFT",l:"SFT",s:"src/train/sft.py",t:"fn",c:2,r:0,p:"Supervised fine-tune Qwen on instruction data with a LoRA adapter (HF Trainer + PEFT).",i:"Qwen base + sft.jsonl",o:"final_adapter/",go:"sft",ca:[],cb:[]},
+  {id:"DPO",l:"DPO",s:"src/train/dpo_qwen.py",t:"fn",c:2,r:1,p:"Direct Preference Optimization: push the model toward 'chosen' and away from 'rejected' answers. Optionally starts from the SFT adapter.",i:"preferences.jsonl (+SFT adapter)",o:"dpo_adapter_v{ts}/",go:"dpo",ca:[],cb:[]},
+  {id:"SEAL",l:"SEAL",s:"src/train/seal.py",t:"gate",c:3,r:0,p:"Reward-gated self-adaptation: the model teaches itself facts from a passage, grades itself on HELD-OUT questions, and keeps the LoRA update only if it genuinely generalized.",i:"passages + Q&A",o:"seal_adapter/ + results.json",go:"seal",ca:[],cb:[]},
+  {id:"HITL",l:"HITL governance",s:"src/hitl/*",t:"db",c:4,r:0,p:"A human-in-the-loop quarantine: the model drafts fact updates, they are risk-screened and parked in SQLite, and a LoRA is trained ONLY on rows a human approved.",i:"model drafts + human review",o:"approved LoRA + audit trail",go:"hitl",ca:[],cb:[]},
+  {id:"adapters",l:"LoRA adapter registry",s:"model_weights/ · ckpts/adapters",t:"data",c:4,r:1,p:"Every stage writes a versioned LoRA adapter dir here. find_latest_adapter() discovers the newest for serving.",i:"adapters from SFT/DPO/SEAL/HITL",o:"newest adapter",ca:[],cb:["serve"]},
+  {id:"serve",l:"Serving",s:"RAG · model_service · gateway",t:"service",c:5,r:0,p:"Base Qwen + newest approved adapter answer questions (RAG retrieval or /generate). Approved+trained facts show up in answers — closing the self-learning loop under human control.",i:"base + adapter",o:"answers",go:"serving",ca:[],cb:[]}
+ ],
+ edges:[["raw","trackA"],["qwen","SFT"],["instr","SFT"],["SFT","DPO"],["instr","DPO"],["qwen","SEAL"],["instr","SEAL"],["DPO","SEAL"],["SEAL","adapters"],["qwen","HITL"],["HITL","adapters"],["adapters","serve"],["trackA","serve"]]
+},
+/* ================= PRETRAIN ================= */
+{id:"pretrain",name:"Pretrain",color:"var(--model)",
+ title:"Track A — build & pretrain a decoder-only LLM from scratch",
+ lede:"A LLaMA-style decoder (<b>RMSNorm · RoPE · SwiGLU · SDPA</b>, weight-tied embeddings) trained with next-token prediction. The <b>124M</b> config is 12 layers / 768 dim / 12 heads, block_size 1024, built on a custom 8k ByteLevel-BPE tokenizer. Flow: raw text → BPE tokenizer → binary token shards → memory-mapped dataset → model forward → cross-entropy → AdamW with cosine LR → checkpoint. This track is offline (the .pt is gitignored); it proves the fundamentals the Qwen track takes for granted.",
+ io:{in:"data/raw/*.txt (plain-text corpus)",
+     out:"ckpts/dgx_pretrain_124M/latest.pt + ckpt_step_N.pt · train_log.jsonl",
+     run:"python3 -m src.train.pretrain --config configs/pretrain_dgx_124M.yaml"},
+ swims:["CORPUS","TOKENIZER","ENCODE","DATASET","ORCHESTRATE","MODEL FORWARD","LOSS / OPTIM","CHECKPOINT"],
+ nodes:[
+  {id:"raw",l:"Raw corpus",s:"data/raw/*.txt",t:"data",c:0,r:0,p:"One text document per line across .txt files.",i:"—",o:"text",ca:[],cb:["collect"]},
+  {id:"collect",l:"collect_text_files()",s:"train_bpe.py:43",t:"fn",c:1,r:0,p:"Glob **/*.txt sorted; raises if the corpus is empty.",i:"input_dir",o:"list[str] of paths",ca:[],cb:["train_bpe_tokenizer"]},
+  {id:"train_bpe_tokenizer",l:"train_bpe_tokenizer()",s:"train_bpe.py:56",t:"fn",c:1,r:1,p:"Train a ByteLevel-BPE tokenizer (NFKC normalizer, ByteLevel pre-tokenizer, special tokens pad/bos/eos/unk).",i:"input_dir, output_dir, vocab_size=8000, min_frequency",o:"writes tokenizer.json + tokenizer_config.json",ca:["collect","ensure_dir","save_json"],cb:["main_bpe"]},
+  {id:"tokjson",l:"tokenizer.json (+config)",s:"artifacts/tokenizer/",t:"data",c:2,r:0,p:"Serialized BPE model + special_token_ids map (name→id).",i:"—",o:"tokenizer artifact",ca:[],cb:["encode_and_write"]},
+  {id:"encode_and_write",l:"encode_and_write()",s:"encode_corpus.py:60",t:"fn",c:2,r:1,p:"Tokenize the corpus line-by-line (one line = one doc), append eos_id, route each doc to train or val by a seeded RNG, append raw token ids to binary files.",i:"input_dir, tokenizer_path, output_dir, val_fraction=0.001, seed=1337",o:"writes train.bin / val.bin + train/val.meta.json",ca:["collect2","choose_dtype","flush_lines","load_json"],cb:["main_enc"]},
+  {id:"choose_dtype",l:"choose_dtype()",s:"encode_corpus.py:48",t:"fn",c:2,r:2,p:"uint16 if vocab ≤ 65535 else uint32 — compact token storage.",i:"vocab_size",o:"np dtype",ca:[],cb:["encode_and_write"]},
+  {id:"bins",l:"train.bin / val.bin",s:"data/tokenized/ (+meta.json)",t:"data",c:3,r:0,p:"Flat binary arrays of token ids; meta.json records dtype, n_tokens, n_docs, vocab_size.",i:"—",o:"token stream",ca:[],cb:["TokenBinDataset"]},
+  {id:"TokenBinDataset",l:"TokenBinDataset",s:"bin_dataset.py:20",t:"fn",c:3,r:1,p:"Memory-mapped Dataset over a .bin shard. __getitem__ slices a contiguous block and returns (x, y=next-token-shifted).",i:"bin_path, meta_path, block_size",o:"(x[block_size], y[block_size]) tensors",ca:[],cb:["loader"]},
+  {id:"loader",l:"DataLoader (+Sampler)",s:"torch.utils.data",t:"ext",c:3,r:2,p:"Batches samples (micro_batch_size); DistributedSampler shards across ranks under DDP.",i:"TokenBinDataset",o:"batches",ca:[],cb:["main"]},
+  {id:"main",l:"main() — orchestrator",s:"pretrain.py:309",t:"fn",c:4,r:0,p:"Loads config, builds dataset+model+optimizer, runs the step loop with grad accumulation, AMP, periodic eval/sample/log, and checkpointing. Guards architecture drift on resume.",i:"--config YAML",o:"drives the whole job",ca:["setup_distributed","get_lr","configure_optimizer","forward","estimate_loss","sample_text","save_checkpoint","append_log"],cb:[]},
+  {id:"setup_distributed",l:"setup_distributed()",s:"pretrain.py:49",t:"fn",c:4,r:1,p:"Init NCCL process group from RANK/WORLD_SIZE env; pick cuda→mps→cpu for single-device.",i:"env",o:"(distributed, rank, device, …)",ca:[],cb:["main"]},
+  {id:"get_lr",l:"get_lr()",s:"pretrain.py:81",t:"fn",c:4,r:2,p:"Linear warmup then cosine decay between max_lr and min_lr; sets the LR each step.",i:"step, cfg",o:"float lr",ca:[],cb:["main","step"]},
+  {id:"configure_optimizer",l:"configure_optimizer()",s:"pretrain.py:111",t:"fn",c:4,r:3,p:"AdamW with weight-decay on dim≥2 params only (norms/biases excluded); fused on CUDA.",i:"model, train_cfg",o:"AdamW optimizer",ca:[],cb:["main","step"]},
+  {id:"forward",l:"DecoderOnlyTransformer.forward",s:"llm.py:72",t:"model",c:5,r:0,p:"Embed → N TransformerBlocks → final RMSNorm → lm_head → logits; computes cross-entropy if targets given.",i:"input_ids[B,T], targets?",o:"(logits[B,T,vocab], loss)",ca:["block","rmsnorm","lmhead"],cb:["main","estimate_loss","sample_text"]},
+  {id:"cfg",l:"ModelConfig",s:"model/config.py:5",t:"data",c:5,r:1,p:"Hyperparameter dataclass: vocab_size, block_size 1024, n_layer 12, n_head 12, n_embd 768, rope_theta 1e4, norm_eps 1e-5.",i:"—",o:"config object",ca:[],cb:["forward"]},
+  {id:"block",l:"TransformerBlock",s:"layers.py:247",t:"model",c:5,r:2,p:"Pre-norm residual block: x += attn(attn_norm(x)); x += mlp(ffn_norm(x)).",i:"x[B,T,H]",o:"x[B,T,H]",ca:["attn","mlp","rmsnorm"],cb:["forward"]},
+  {id:"attn",l:"CausalSelfAttention",s:"layers.py:145",t:"model",c:5,r:3,p:"Multi-head causal attention via F.scaled_dot_product_attention (flash). q/k/v/out_proj are the LoRA targets.",i:"x[B,T,H]",o:"x[B,T,H]",ca:["rope"],cb:["block"]},
+  {id:"rope",l:"RotaryEmbedding",s:"layers.py:53",t:"model",c:5,r:4,p:"RoPE applied to q/k only (theta 1e4, fp32 rotation).",i:"q, k",o:"rotated q, k",ca:[],cb:["attn"]},
+  {id:"mlp",l:"SwiGLUMLP",s:"layers.py:210",t:"model",c:5,r:5,p:"down(SiLU(gate(x)) · up(x)); hidden rounded to multiple_of. gate/up/down_proj are LoRA targets.",i:"x",o:"x",ca:[],cb:["block"]},
+  {id:"rmsnorm",l:"RMSNorm",s:"layers.py:22",t:"model",c:5,r:6,p:"RMS layer norm (fp32 variance, learnable scale, no mean subtraction). Used 2× per block + final.",i:"x",o:"x",ca:[],cb:["block","forward"]},
+  {id:"lmhead",l:"lm_head (weight-tied)",s:"llm.py:49",t:"model",c:5,r:7,p:"Output projection whose weight is tied to tok_embeddings — fewer params, better calibration.",i:"hidden",o:"logits",ca:[],cb:["forward"]},
+  {id:"celoss",l:"F.cross_entropy",s:"llm.py:107",t:"fn",c:6,r:0,p:"Next-token loss over the flattened vocab.",i:"logits, targets",o:"scalar loss",ca:[],cb:["forward","step"]},
+  {id:"step",l:"backward · clip · AdamW.step",s:"pretrain.py:460-520",t:"fn",c:6,r:1,p:"GradScaler-scaled backward with grad accumulation, grad-norm clip, optimizer step; LR from get_lr.",i:"loss, get_lr, AdamW",o:"updated weights",ca:["get_lr","configure_optimizer","celoss"],cb:["save_checkpoint"]},
+  {id:"estimate_loss",l:"estimate_loss()",s:"pretrain.py:197",t:"fn",c:6,r:2,p:"Averages val loss over eval_iters batches under autocast; all-reduce across ranks.",i:"model, val_loader",o:"float val loss",ca:["forward"],cb:["main"]},
+  {id:"sample_text",l:"sample_text()",s:"pretrain.py:252",t:"fn",c:6,r:3,p:"Periodic qualitative check: encode a prompt and generate (temp 0.8, top_k 50).",i:"model, tokenizer, prompt",o:"generated string",ca:["forward"],cb:["main"]},
+  {id:"save_checkpoint",l:"save_checkpoint()",s:"pretrain.py:152",t:"fn",c:7,r:0,p:"Rank-0 saves model+optimizer+model_config to latest.pt and ckpt_step_N.pt.",i:"model, optimizer, step, cfg",o:"writes .pt files",ca:[],cb:["main","step"]},
+  {id:"ckpt",l:"latest.pt / ckpt_step_N.pt",s:"ckpts/dgx_pretrain_124M/",t:"data",c:7,r:1,p:"Full training checkpoint (gitignored). Feeds Track-A SFT/DPO and the from-scratch services.",i:"—",o:"checkpoint",ca:[],cb:[]},
+  {id:"append_log",l:"append_log()",s:"pretrain.py:291",t:"data",c:7,r:2,p:"Appends a JSON line (loss, ppl, lr) to train_log.jsonl.",i:"record",o:"train_log.jsonl",ca:[],cb:["main"]}
+ ],
+ edges:[["raw","collect"],["collect","train_bpe_tokenizer"],["train_bpe_tokenizer","tokjson"],["tokjson","encode_and_write"],["raw","encode_and_write"],["choose_dtype","encode_and_write"],["encode_and_write","bins"],["bins","TokenBinDataset"],["TokenBinDataset","loader"],["loader","main"],["main","setup_distributed"],["main","get_lr"],["main","configure_optimizer"],["main","forward"],["cfg","forward"],["forward","block"],["block","attn"],["attn","rope"],["block","mlp"],["block","rmsnorm"],["forward","lmhead"],["forward","celoss"],["celoss","step"],["get_lr","step"],["configure_optimizer","step"],["main","estimate_loss"],["estimate_loss","forward"],["main","sample_text"],["sample_text","forward"],["step","save_checkpoint"],["save_checkpoint","ckpt"],["main","append_log"]]
+},
+/* ================= SFT ================= */
+{id:"sft",name:"SFT",color:"var(--fn)",
+ title:"Supervised fine-tuning (Qwen + LoRA)",
+ lede:"Teach Qwen the house instruction format by fine-tuning a small <b>LoRA adapter</b> (rank 16 / α 32 on q_proj, v_proj — hardcoded in the trainer) with the HuggingFace <b>Trainer</b>. Examples become chat turns via <code>apply_chat_template</code>. Short run: lr 3e-5, max_steps 100, micro-batch 4 × grad-accum 4, bf16. <b>Note:</b> this trainer lets loss fall over the whole sequence (no prompt masking) — unlike every other dataset in the repo, which masks the prompt with -100.",
+ io:{in:"Qwen2.5-1.5B-Instruct + data/alignment/sft.jsonl",
+     out:"model_weights/dgx_sft_rag/final_adapter/",
+     run:"python3 -m src.train.sft --config configs/sft_rag_duk.yaml"},
+ swims:["CONFIG / DATA","ORCHESTRATE","LOAD MODEL","INJECT LoRA","DATASET","TRAINER","TRAIN","SAVE"],
+ nodes:[
+  {id:"cfg",l:"sft_rag_duk.yaml",s:"configs/",t:"data",c:0,r:0,p:"Run config: base model, data path, lr 3e-5, warmup 10, max_steps 100, batch/accum, bf16.",i:"—",o:"config dict",ca:[],cb:["main"]},
+  {id:"data",l:"sft.jsonl",s:"data/alignment/",t:"data",c:0,r:1,p:"Instruction/response rows ({prompt, response}).",i:"—",o:"rows",ca:[],cb:["load_dataset"]},
+  {id:"main",l:"main()",s:"sft.py:14",t:"fn",c:1,r:0,p:"The whole SFT job in one function: seed, load tokenizer+model, inject LoRA, map dataset, build Trainer, train, save adapter.",i:"--config",o:"orchestrates run",ca:["seed","tok","model","lora","peft","load_dataset","tokfn","targs","trainer","save"],cb:[]},
+  {id:"seed",l:"set_seed / ensure_dir",s:"common/utils.py:44,11",t:"fn",c:1,r:1,p:"Reproducibility seed + output dir creation.",i:"seed, out_dir",o:"—",ca:[],cb:["main"]},
+  {id:"tok",l:"AutoTokenizer",s:"transformers",t:"ext",c:2,r:0,p:"Load Qwen tokenizer; set pad_token=eos_token if missing.",i:"base model path",o:"tokenizer",ca:[],cb:["main","tokfn"]},
+  {id:"model",l:"AutoModelForCausalLM",s:"transformers",t:"ext",c:2,r:1,p:"Load Qwen base weights (bf16 on CUDA).",i:"base model path",o:"model",ca:[],cb:["peft"]},
+  {id:"lora",l:"LoraConfig",s:"peft",t:"ext",c:3,r:0,p:"r=16, α=32, target_modules=[q_proj,v_proj], dropout 0.05, task CAUSAL_LM (hardcoded).",i:"—",o:"LoRA config",ca:[],cb:["peft"]},
+  {id:"peft",l:"get_peft_model",s:"peft",t:"ext",c:3,r:1,p:"Wrap the base model so only the LoRA deltas are trainable.",i:"model, LoraConfig",o:"PEFT model",ca:[],cb:["trainer"]},
+  {id:"load_dataset",l:"load_dataset('json')",s:"datasets",t:"ext",c:4,r:0,p:"Stream sft.jsonl into a HF Dataset (split=train).",i:"sft_data_path",o:"Dataset",ca:[],cb:["tokfn"]},
+  {id:"tokfn",l:"tokenize_function()",s:"sft.py:58 (nested)",t:"fn",c:4,r:1,p:"Build [user,assistant] chat messages, apply_chat_template, tokenize with truncation to block_size. No explicit prompt masking.",i:"example",o:"input_ids",ca:["tok"],cb:["trainer"]},
+  {id:"targs",l:"TrainingArguments",s:"transformers",t:"ext",c:5,r:0,p:"lr, max_steps, warmup, save/log intervals, bf16, report_to=none.",i:"cfg",o:"args",ca:[],cb:["trainer"]},
+  {id:"collator",l:"DataCollatorForLM(mlm=False)",s:"transformers",t:"ext",c:5,r:1,p:"Causal-LM collator — shifts labels; drives the full-sequence loss.",i:"batch",o:"collated batch",ca:[],cb:["trainer"]},
+  {id:"trainer",l:"Trainer",s:"transformers",t:"ext",c:5,r:2,p:"HF training loop over the PEFT model + tokenized dataset.",i:"model, dataset, args, collator",o:"trained adapter",ca:[],cb:["train"]},
+  {id:"train",l:"trainer.train()",s:"sft.py:95",t:"fn",c:6,r:0,p:"Runs the optimization; checkpoints to out_dir during training.",i:"—",o:"optimized LoRA",ca:[],cb:["save"]},
+  {id:"save",l:"save_pretrained()",s:"sft.py:98",t:"fn",c:7,r:0,p:"Persist the LoRA adapter + tokenizer.",i:"model, tokenizer",o:"writes final_adapter/",ca:[],cb:[]},
+  {id:"adapter",l:"final_adapter/",s:"model_weights/dgx_sft_rag/",t:"data",c:7,r:1,p:"The SFT LoRA adapter — can seed DPO or be served directly.",i:"—",o:"adapter",ca:[],cb:[]}
+ ],
+ edges:[["cfg","main"],["data","load_dataset"],["main","seed"],["main","tok"],["main","model"],["model","peft"],["lora","peft"],["main","load_dataset"],["load_dataset","tokfn"],["tok","tokfn"],["peft","trainer"],["tokfn","trainer"],["targs","trainer"],["collator","trainer"],["trainer","train"],["train","save"],["save","adapter"]]
+},
+/* ================= DPO ================= */
+{id:"dpo",name:"DPO",color:"var(--fn)",
+ title:"Direct Preference Optimization (Qwen + LoRA)",
+ lede:"Make the model prefer the <b>chosen</b> answer over the <b>rejected</b> one for each prompt. The clever trick in <code>dpo_qwen.py</code>: <b>one model in memory</b> — with the LoRA adapter ON it is the <i>policy</i>; with <code>disable_adapter()</code> it is the frozen <i>reference</i>. Loss = <code>-logσ(β·((π_chosen−π_rejected)−(ref_chosen−ref_rejected)))</code>, β=0.1, lr 5e-6, 1 epoch. It can start from the SFT adapter (merged in first). Two other DPO implementations exist for the from-scratch track (shown dashed).",
+ io:{in:"data/alignment/preferences.jsonl ({prompt,chosen,rejected}) + optional SFT adapter",
+     out:"model_weights/dgx_dpo_qwen/dpo_adapter_v{ts}/ + meta.json",
+     run:"python3 -m src.train.dpo_qwen --config configs/dpo_qwen.yaml"},
+ swims:["CONFIG / DATA","ORCHESTRATE","LOAD","INJECT LoRA","ENCODE","SCORE / LOSS","TRAIN","SAVE"],
+ nodes:[
+  {id:"cfg",l:"dpo_qwen.yaml",s:"configs/",t:"data",c:0,r:0,p:"β 0.1, lr 5e-6, epochs 1, max_pairs 500, max_length 1024, sft_adapter_path (null = base Qwen).",i:"—",o:"config",ca:[],cb:["main"]},
+  {id:"data",l:"preferences.jsonl",s:"data/alignment/",t:"data",c:0,r:1,p:"Each line {prompt, chosen, rejected}.",i:"—",o:"pairs",ca:[],cb:["load_pairs"]},
+  {id:"main",l:"main()",s:"dpo_qwen.py:79",t:"fn",c:1,r:0,p:"Orchestrates: load model, optionally fold in SFT adapter, inject fresh LoRA, encode pairs, run the DPO loop, save a versioned adapter.",i:"--config",o:"drives run",ca:["load_pairs","tok","model","mergesft","lora","peft","encode","seqlogp","save"],cb:[]},
+  {id:"load_pairs",l:"_load_pairs()",s:"dpo_qwen.py:33",t:"fn",c:2,r:0,p:"Read JSONL, drop rows missing any field, cap to max_pairs.",i:"data_path, max_pairs",o:"list[(prompt,chosen,rejected)]",ca:[],cb:["main"]},
+  {id:"tok",l:"AutoTokenizer",s:"transformers",t:"ext",c:2,r:1,p:"Qwen tokenizer (chat template).",i:"base path",o:"tokenizer",ca:[],cb:["encode"]},
+  {id:"model",l:"AutoModelForCausalLM",s:"transformers",t:"ext",c:2,r:2,p:"Qwen base weights.",i:"base path",o:"model",ca:[],cb:["mergesft","peft"]},
+  {id:"mergesft",l:"PeftModel + merge_and_unload",s:"peft (optional)",t:"ext",c:3,r:0,p:"If sft_adapter_path set, fold the SFT adapter into the base so DPO refines the aligned model.",i:"model, sft_adapter_path",o:"merged base",ca:[],cb:["peft"]},
+  {id:"lora",l:"LoraConfig",s:"peft",t:"ext",c:3,r:1,p:"r/α/dropout (defaults 16/32/0.05) on q_proj, v_proj.",i:"—",o:"LoRA config",ca:[],cb:["peft"]},
+  {id:"peft",l:"get_peft_model",s:"peft",t:"ext",c:3,r:2,p:"Attach the trainable DPO adapter.",i:"model, LoraConfig",o:"PEFT policy model",ca:[],cb:["seqlogp"]},
+  {id:"encode",l:"_encode_pair()",s:"dpo_qwen.py:50",t:"fn",c:4,r:0,p:"Build (input_ids, labels) for prompt+answer via chat template; mask prompt tokens with -100; skip over-long pairs.",i:"tokenizer, prompt, answer",o:"(x, y) or None",ca:["tok"],cb:["main","seqlogp"]},
+  {id:"seqlogp",l:"_seq_logp()",s:"dpo_qwen.py:68",t:"fn",c:5,r:0,p:"Summed log-prob of the (unmasked) answer tokens. Called 4× per pair: policy chosen/rejected (adapter ON, grad) and reference chosen/rejected (disable_adapter, no_grad).",i:"model, x, y",o:"tensor[B] logprob",ca:[],cb:["main","dpoloss"]},
+  {id:"dpoloss",l:"DPO loss  -logσ(β·Δ)",s:"dpo_qwen.py:157",t:"fn",c:5,r:1,p:"logits = β·((π_ch−π_rej)−(ref_ch−ref_rej)); loss = -F.logsigmoid(logits).mean(); pref-acc = (logits>0).",i:"4 logprobs, β",o:"loss, accuracy",ca:["seqlogp"],cb:["train"]},
+  {id:"train",l:"AdamW loop",s:"dpo_qwen.py:146-165",t:"fn",c:6,r:0,p:"Optimize only the LoRA params over epochs; backprop the DPO loss.",i:"loss, AdamW",o:"trained adapter",ca:["dpoloss"],cb:["save"]},
+  {id:"save",l:"save_pretrained + meta.json",s:"dpo_qwen.py:168",t:"fn",c:7,r:0,p:"Write a timestamped adapter dir with provenance (base, sft_adapter, β, lr, num_pairs, version_id).",i:"model, tokenizer",o:"writes adapter",ca:[],cb:["adapter"]},
+  {id:"adapter",l:"dpo_adapter_v{ts}/",s:"model_weights/dgx_dpo_qwen/",t:"data",c:7,r:1,p:"The preference-aligned LoRA adapter.",i:"—",o:"adapter",ca:[],cb:[]},
+  {id:"dpo_scratch",l:"dpo.py — from-scratch variant",s:"src/train/dpo.py",t:"note",c:6,r:3,p:"Alternative: DPO on the custom DecoderOnlyTransformer. TWO full models in memory (policy + frozen reference copy), full-weight training, DDP + AMP, saves latest_dpo.pt (not a LoRA adapter). Uses get_batch_logps + a local dpo_loss.",i:"latest.pt + dpo.jsonl",o:"latest_dpo.pt",ca:[],cb:[],planned:1},
+  {id:"align_dpo",l:"alignment_service /dpo",s:"src/alignment/alignment_service.py:188",t:"note",c:7,r:3,p:"Third variant: a FastAPI endpoint (:8002, offline track) that does full-weight DPO with a deepcopy'd reference model + DataParallel. Unauthenticated training endpoint.",i:"SFT checkpoint",o:"DPO checkpoint",ca:[],cb:[],planned:1}
+ ],
+ edges:[["cfg","main"],["data","load_pairs"],["main","load_pairs"],["main","tok"],["main","model"],["model","mergesft"],["mergesft","peft"],["lora","peft"],["model","peft"],["peft","seqlogp"],["load_pairs","encode"],["tok","encode"],["encode","seqlogp"],["seqlogp","dpoloss"],["dpoloss","train"],["train","save"],["save","adapter"]]
+},
+/* ================= SEAL ================= */
+{id:"seal",name:"SEAL",color:"var(--gate)",
+ title:"SEAL — reward-gated self-adaptation (the self-owned loop)",
+ lede:"The headline idea. For each passage the model <b>teaches itself</b>: it trains a LoRA adapter on <i>some</i> of the passage's Q&A, then <b>grades itself</b> with token-F1 on the <i>held-out</i> Q&A it never trained on. The adapter is kept only if the held-out score <b>improves</b> by ≥ accept_margin — so the system owns the decision to accept or discard its own weight update, using <i>generalization</i> (not memorization) as the test. A <b>safety gate</b> (RiskValidator) drops HIGH-risk edits before any compute — a reward improvement can never override safety. Config: holdout_frac 0.34, accept_margin 0.0, LoRA 16/32, 5 epochs, greedy 32 tokens.",
+ io:{in:"data/self_adapt/squad_mini.jsonl ({passage, qa_pairs:[{q,a}]})",
+     out:"runs/self_adapt/results.json (always) · model_weights/dgx_seal/seal_adapter/ (only if accepted)",
+     run:"python3 -m src.train.seal --config configs/seal_qwen.yaml"},
+ swims:["CONFIG / DATA","ORCHESTRATE","PREP + SCREEN","MODEL","BASELINE REWARD","ADAPT","ADAPTED REWARD","GATE","SAVE"],
+ nodes:[
+  {id:"cfg",l:"seal_qwen.yaml",s:"configs/",t:"data",c:0,r:0,p:"holdout_frac 0.34, min_qa 2, split_seed 42, accept_margin 0.0, enforce_safety true, lora 16/32, epochs 5, max_new_tokens 32.",i:"—",o:"config",ca:[],cb:["main"]},
+  {id:"data",l:"squad_mini.jsonl",s:"data/self_adapt/",t:"data",c:0,r:1,p:"SQuAD-style rows: a passage plus several Q&A pairs about it.",i:"—",o:"passages+Q&A",ca:[],cb:["load_grouped"]},
+  {id:"main",l:"main()",s:"seal.py:142",t:"fn",c:1,r:0,p:"Orchestrates the full self-adaptation loop and always writes results.json (accepted or not).",i:"--config",o:"drives run, writes results",ca:["load_grouped","split","safety","baseeval","buildsample","adapt","adaptedeval","gate","save"],cb:[]},
+  {id:"load_grouped",l:"_load_grouped()",s:"seal.py:37",t:"fn",c:2,r:0,p:"Load JSONL into per-passage groups — grouping matters because the train/eval split happens INSIDE each passage.",i:"data_path, max_passages",o:"[{passage, qa:[{q,a}]}]",ca:[],cb:["main"]},
+  {id:"split",l:"_split_adapt_heldout()",s:"seal.py:59",t:"fn",c:2,r:1,p:"Per passage, seeded-shuffle and peel ~34% of Q&A into the HELD-OUT eval set; the rest become adapt-set self-edits. Always leaves ≥1 to train on; passages with <2 Q&A are skipped.",i:"groups, holdout_frac, min_qa, seed",o:"(adapt_edits, heldout_edits, skipped)",ca:[],cb:["main"]},
+  {id:"safety",l:"_apply_safety_gate()",s:"seal.py:83",t:"gate",c:2,r:2,p:"Drops HIGH-risk self-edits BEFORE any compute. Applied to both adapt and held-out lists.",i:"edits",o:"filtered edits",ca:["risk"],cb:["main"]},
+  {id:"risk",l:"RiskValidator.analyze",s:"hitl/validators.py:21",t:"gate",c:2,r:3,p:"Blocked keyword → HIGH; sensitive topic / PII (email, IPv4) → MEDIUM; else LOW. Shared with the HITL path.",i:"question, answer",o:"(risk_level, flags)",ca:[],cb:["safety"]},
+  {id:"model",l:"AutoModel + AutoTokenizer",s:"transformers · Qwen",t:"ext",c:3,r:0,p:"Load Qwen2.5-1.5B-Instruct base for scoring and adaptation.",i:"base path",o:"model, tokenizer",ca:[],cb:["baseeval","adapt"]},
+  {id:"buildsample",l:"_build_sample()",s:"seal.py:128",t:"fn",c:3,r:1,p:"Tokenize one self-edit; mask prompt tokens (-100) so loss falls only on the answer.",i:"tokenizer, passage, q, a",o:"(x, y) or None",ca:[],cb:["adapt"]},
+  {id:"baseeval",l:"_evaluate — baseline",s:"seal.py:116",t:"fn",c:4,r:0,p:"Mean token-F1 of greedy answers on the held-out set (base_heldout = the real claim) and adapt set (base_train = sanity ref), BEFORE training.",i:"base model, edits",o:"base_heldout, base_train",ca:["greedy","tokenf1"],cb:["gate"]},
+  {id:"greedy",l:"_greedy_answer()",s:"seal.py:99",t:"fn",c:4,r:1,p:"Deterministic greedy decode (do_sample=False) so baseline vs adapted answers are comparable.",i:"model, passage, question",o:"answer string",ca:[],cb:["baseeval","adaptedeval"]},
+  {id:"tokenf1",l:"token_f1()",s:"common/metrics.py:9",t:"fn",c:4,r:2,p:"Order-insensitive token-level F1 — the SEAL reward signal (torch-free).",i:"prediction, reference",o:"float F1",ca:[],cb:["baseeval","adaptedeval"]},
+  {id:"adapt",l:"LoRA adapt (AdamW)",s:"seal.py: get_peft_model + loop",t:"fn",c:5,r:0,p:"LoraConfig(16/32, q_proj/v_proj) → get_peft_model → AdamW trains the LoRA deltas for 5 epochs ONLY on the adapt-set. Held-out Q&A is never seen in training.",i:"model, adapt-set, _build_sample",o:"adapted (candidate) model",ca:["buildsample"],cb:["adaptedeval"]},
+  {id:"adaptedeval",l:"_evaluate — adapted",s:"seal.py:116",t:"fn",c:6,r:0,p:"Re-score the SAME held-out + adapt sets AFTER training → adapted_heldout, adapted_train.",i:"adapted model, edits",o:"adapted_heldout, adapted_train",ca:["greedy","tokenf1"],cb:["gate"]},
+  {id:"gate",l:"reward gate (accept/reject)",s:"seal.py: accept_margin",t:"gate",c:7,r:0,p:"improvement_heldout = adapted_heldout − base_heldout; accept if ≥ accept_margin (0.0). Gated on HELD-OUT improvement, not training improvement — rejects pure memorization.",i:"base & adapted held-out F1",o:"accepted: bool",ca:[],cb:["save","results"]},
+  {id:"save",l:"save adapter + meta",s:"seal.py: save_pretrained",t:"fn",c:8,r:0,p:"If accepted: save the LoRA adapter + tokenizer + meta.json. If rejected: discard.",i:"accepted model",o:"writes seal_adapter/",ca:[],cb:["adapter"]},
+  {id:"adapter",l:"seal_adapter/",s:"model_weights/dgx_seal/",t:"data",c:8,r:1,p:"The accepted self-adaptation — reloadable later by model_service for serving.",i:"—",o:"adapter",ca:[],cb:[]},
+  {id:"results",l:"results.json",s:"runs/self_adapt/",t:"data",c:8,r:2,p:"Always written: base/adapted held-out & train F1, improvement, accepted flag — the audit of the self-learning decision.",i:"—",o:"metrics",ca:[],cb:[]},
+  {id:"seal_core",l:"seal_core.py (planned)",s:"src/adaptation/ — not yet built",t:"note",c:3,r:3,p:"PLAN.md proposes lifting load/split/greedy/evaluate/adapt/gate into a shared module so the CLI and the /adapt service can't drift. Does NOT exist yet.",i:"—",o:"—",ca:[],cb:[],planned:1},
+  {id:"adapt_svc",l:"adaptation_service /adapt",s:"src/adaptation/adaptation_service.py:99",t:"note",c:7,r:2,p:"Service variant (offline, custom model): same baseline→adapt→reward→gate shape, but evaluates on the SAME Q&A it trained on (no held-out), and a HIGH-risk flag raises HTTP 422 instead of silently dropping.",i:"AdaptRequest",o:"saved LoRA or 422",ca:[],cb:[],planned:1}
+ ],
+ edges:[["cfg","main"],["data","load_grouped"],["main","load_grouped"],["load_grouped","split"],["split","safety"],["safety","risk"],["main","model"],["split","baseeval"],["model","baseeval"],["baseeval","greedy"],["greedy","tokenf1"],["safety","adapt"],["model","adapt"],["buildsample","adapt"],["main","buildsample"],["adapt","adaptedeval"],["adaptedeval","greedy"],["baseeval","gate"],["adaptedeval","gate"],["gate","save"],["save","adapter"],["gate","results"]]
+},
+/* ================= HITL ================= */
+{id:"hitl",name:"HITL",color:"var(--db)",
+ title:"HITL — human-governed self-learning",
+ lede:"The guardrail that makes self-learning safe: <b>the model is never allowed to retrain on its own output unsupervised.</b> Qwen drafts fact updates, they are risk-screened and <b>quarantined</b> in a SQLite DB as <code>PENDING</code>, a human <b>approves or rejects</b> each one in a dashboard, and a LoRA is trained <b>only on APPROVED rows</b>. Every job is logged in an <code>adapter_jobs</code> audit table, approved rows are flipped to <code>TRAINED</code> so they're never reused, and the new adapter is auto-discovered for serving — closing the loop under human control.",
+ io:{in:"model-drafted proposals + human approve/reject decisions",
+     out:"approved-only LoRA adapter + full audit trail in data/quarantine_store.db",
+     run:"docker-compose up (hitl-service :8006) · python3 -m src.train.hitl --config configs/hitl_qwen.yaml"},
+ swims:["SOURCE","DRAFT (Qwen)","SCREEN","QUARANTINE","HUMAN REVIEW","TRAIN APPROVED","AUDIT","ADAPTER","SERVE"],
+ nodes:[
+  {id:"src",l:"passage + questions",s:"operator input / RAG failures",t:"data",c:0,r:0,p:"A context passage and questions the model should answer with new facts.",i:"—",o:"draft requests",ca:[],cb:["engine"]},
+  {id:"engine",l:"ProposalEngine.extract_and_stage",s:"proposal_engine.py:62",t:"fn",c:1,r:0,p:"Qwen (+ newest discovered adapter) drafts an answer per question (generate, temp 0.1), then screens and stages each as a proposal.",i:"passage, questions",o:"count staged",ca:["risk","add","find"],cb:["src"]},
+  {id:"risk",l:"RiskValidator.analyze",s:"validators.py:21",t:"gate",c:2,r:0,p:"Blocked keyword → HIGH; sensitive topic / PII email+IPv4 → MEDIUM; else LOW. Attaches risk flags to each proposal.",i:"question, answer",o:"(risk_level, flags)",ca:[],cb:["engine"]},
+  {id:"add",l:"add_proposal()",s:"db.py:46",t:"fn",c:3,r:0,p:"INSERT the drafted row with status PENDING + risk + comma-joined flags.",i:"passage, q, answer, risk, flags",o:"new row id",ca:[],cb:["engine"]},
+  {id:"qprop",l:"quarantine_proposals",s:"SQLite table",t:"db",c:3,r:1,p:"The review queue. Columns: passage, question, proposed_answer, status(PENDING→APPROVED/REJECTED→TRAINED), risk_level, risk_flags, created_at.",i:"—",o:"rows by status",ca:[],cb:["apiapp","svcapp","list"]},
+  {id:"apiapp",l:"api.py — SPA backend",s:"src/hitl/api.py (/api/*)",t:"service",c:4,r:0,p:"'MiniSEAL HITL Dashboard': serves ui/, GET /api/proposals, GET /api/metrics, POST /api/review, POST /api/train_lora (background).",i:"HTTP",o:"JSON + static UI",ca:["review"],cb:["qprop"]},
+  {id:"svcapp",l:"hitl_service — :8006",s:"services/hitl_service/app.py",t:"service",c:4,r:1,p:"Containerized microservice (docker-compose). POST /proposals/generate, /proposals/review, /train, and a server-rendered GET /dashboard with Approve/Reject forms.",i:"HTTP",o:"HTML + JSON",ca:["review","engine"],cb:["qprop"]},
+  {id:"review",l:"update_status()",s:"db.py:63",t:"fn",c:4,r:2,p:"Human decision flips a row PENDING → APPROVED or REJECTED.",i:"proposal_id, status",o:"updated row",ca:[],cb:["apiapp","svcapp"]},
+  {id:"train",l:"execute_approved_training()",s:"approved_lora_train.py:17",t:"fn",c:5,r:0,p:"The governance-enforcing trainer: reads ONLY APPROVED rows; if none, refuses to train. Injects LoRA (q_proj,v_proj 16/32), fine-tunes, saves a versioned adapter.",i:"db_path, base_model, out_dir",o:"adapter path",ca:["list","job","adapter","trained"],cb:["review"]},
+  {id:"list",l:"list_proposals('APPROVED')",s:"db.py:57",t:"fn",c:5,r:1,p:"Structurally excludes PENDING/REJECTED — only approved facts can reach training.",i:"status",o:"approved rows",ca:[],cb:["train"]},
+  {id:"hitl_cli",l:"src/train/hitl.py (CLI)",s:"configs/hitl_qwen.yaml",t:"note",c:5,r:2,p:"DB-first entrypoint: if the DB has APPROVED rows → execute_approved_training; else fall back to an approved-only JSONL; else refuse. epochs 5, lr 1e-4.",i:"--config",o:"adapter",ca:[],cb:[],planned:1},
+  {id:"job",l:"record / update_adapter_job",s:"db.py:69,80",t:"fn",c:6,r:0,p:"Opens a RUNNING audit row before training; closes it SUCCESS (loss, path) or FAILED on exception.",i:"job_status, loss, path",o:"audit row",ca:[],cb:["train"]},
+  {id:"adapter",l:"lora_adapter_v{ts}/",s:"model_weights/dgx_hitl",t:"data",c:6,r:1,p:"Approved-only LoRA adapter + meta.json (source=hitl_approved_training, num_facts, version_id).",i:"—",o:"adapter",ca:[],cb:["find"]},
+  {id:"trained",l:"status → TRAINED",s:"db.py:63 (update_status)",t:"fn",c:7,r:0,p:"Each trained proposal is flipped APPROVED → TRAINED so it is never retrained.",i:"proposal_id",o:"closed row",ca:[],cb:["train"]},
+  {id:"ajobs",l:"adapter_jobs",s:"SQLite table",t:"db",c:7,r:1,p:"Audit trail / rollback registry: job_status(RUNNING→SUCCESS/FAILED), run_loss, adapter_path, created_at. list_adapter_jobs is newest-first.",i:"—",o:"audit log",ca:[],cb:[]},
+  {id:"find",l:"find_latest_adapter()",s:"proposal_engine.py:10",t:"fn",c:8,r:0,p:"Walks ckpts/adapters + model_weights for the newest dir with adapter_config.json — picks up the just-approved adapter.",i:"search_roots",o:"newest adapter dir",ca:[],cb:["engine","serve"]},
+  {id:"serve",l:"serving (RAG / model_service)",s:"base Qwen + newest adapter",t:"service",c:8,r:1,p:"Approved+trained facts now show up in answers — and feed the next round of drafting. The loop is closed under human control.",i:"base + adapter",o:"answers",ca:[],cb:["find"]}
+ ],
+ edges:[["src","engine"],["engine","risk"],["risk","add"],["add","qprop"],["qprop","apiapp"],["qprop","svcapp"],["apiapp","review"],["svcapp","review"],["review","train"],["qprop","list"],["list","train"],["train","job"],["job","ajobs"],["train","adapter"],["train","trained"],["trained","qprop"],["adapter","find"],["find","serve"],["find","engine"]]
+},
+/* ================= SERVING ================= */
+{id:"serving",name:"Serving & Services",color:"var(--service)",
+ title:"Services, ports & how it all runs",
+ lede:"Two deployment tracks share the repo. <b>LIVE</b> (docker-compose up): the Qwen-backed <b>tokenizer-service :8001</b> and <b>hitl-service :8006</b>. <b>OFFLINE</b> (commented out, needs DGX-trained .pt): the from-scratch <b>alignment :8002</b>, <b>adaptation :8003</b> and <b>api-gateway :8080</b>. The gateway can orchestrate a full pipeline (tokenizer → SFT → DPO → adapt) across services. Serving loads base Qwen + the newest LoRA adapter; the <b>RAG demo</b> retrieves a context chunk and generates an answer with that same stack. <b>Security note:</b> the training/serving endpoints are unauthenticated — fine for a local capstone, not for exposure.",
+ io:{in:"HTTP requests · config paths · trained adapters/.pt",
+     out:"tokenized ids · generated text · governed training jobs",
+     run:"docker-compose up --build -d   (LIVE: :8001 tokenizer, :8006 hitl)"},
+ swims:["ENTRY","ORCHESTRATE","LIVE (compose)","OFFLINE (from-scratch)","INFERENCE","DEMO / ADAPTERS"],
+ nodes:[
+  {id:"compose",l:"docker-compose.yml",s:"LIVE services only",t:"data",c:0,r:0,p:"Starts tokenizer-service (:8001) and hitl-service (:8006) from docker/Dockerfile. The alignment/adaptation/gateway services are explicitly commented out as the offline Track-A stack.",i:"—",o:"running containers",ca:[],cb:["tokenizer","hitl_svc"]},
+  {id:"qwen",l:"Qwen2.5-1.5B-Instruct",s:"base for live serving",t:"ext",c:0,r:1,p:"Base model loaded by RAG + model_service, with the newest approved adapter attached.",i:"—",o:"base weights",ca:[],cb:["rag","model_service"]},
+  {id:"gateway",l:"api-gateway  :8080",s:"src/api/gateway.py",t:"service",c:1,r:0,p:"OFFLINE orchestrator. GET /health fans out to all services; POST /pipeline/run runs tokenizer → alignment /sft → /dpo → adaptation /adapt sequentially; POST /pipeline/propose_failure → hitl /proposals/generate.",i:"FullPipelineRequest",o:"per-stage JSON",ca:["tokenizer","alignment","adaptation","hitl_svc"],cb:[]},
+  {id:"tokenizer",l:"tokenizer-service  :8001",s:"services/tokenizer_service/app.py",t:"service",c:2,r:0,p:"LIVE. BPE tokenizer. GET /health, GET /info, POST /tokenize (text→ids), POST /detokenize (ids→text).",i:"text / ids",o:"ids / text",ca:[],cb:["compose","gateway"]},
+  {id:"hitl_svc",l:"hitl-service  :8006",s:"services/hitl_service/app.py",t:"service",c:2,r:1,p:"LIVE. Human-in-the-loop governance (see HITL tab): /proposals/generate, /proposals/review, /train, /dashboard.",i:"HTTP",o:"proposals, training, dashboard",ca:[],cb:["compose","gateway"]},
+  {id:"alignment",l:"alignment-service  :8002",s:"src/alignment/alignment_service.py",t:"service",c:3,r:0,p:"OFFLINE. Full-weight SFT+DPO on the custom DecoderOnlyTransformer. POST /sft, POST /dpo. Unauthenticated training endpoints.",i:"SFT/DPO request",o:"checkpoints",ca:[],cb:["gateway"]},
+  {id:"adaptation",l:"adaptation-service  :8003",s:"src/adaptation/adaptation_service.py",t:"service",c:3,r:1,p:"OFFLINE. SEAL-style /adapt on the custom model: reward-gated LoRA self-edit; HIGH-risk → HTTP 422.",i:"AdaptRequest",o:"saved LoRA or 422",ca:[],cb:["gateway"]},
+  {id:"model_service",l:"model-service (/generate)",s:"services/model_service/app.py",t:"service",c:4,r:0,p:"Serves the custom DecoderOnlyTransformer from CKPT_PATH; optional ADAPTER_PATH loads a LoRA via load_lora_adapter / merge_lora_weights. GET /health, POST /generate.",i:"prompt",o:"generated text",ca:["loadlora"],cb:["qwen"]},
+  {id:"pretrain_service",l:"pretrain-service (/start)",s:"services/pretrain_service/app.py",t:"service",c:4,r:1,p:"Launches src.train.pretrain as a subprocess (torchrun if nproc>1). POST /start→pid, GET /status/{pid}, POST /stop/{pid}.",i:"config_path, nproc",o:"job pid / status",ca:[],cb:[]},
+  {id:"loadlora",l:"load_lora_adapter / merge",s:"src/lora/lora.py:264,312",t:"fn",c:4,r:2,p:"Re-inject a saved adapter into the model (strict load), or fold it into base weights for zero-overhead deploy.",i:"model, adapter path",o:"adapted model",ca:[],cb:["model_service"]},
+  {id:"rag",l:"RAG demo",s:"scripts/run_rag.py",t:"fn",c:5,r:0,p:"Interactive terminal chat: chunk data/duk_data.txt → embed (all-MiniLM-L6-v2) → cosine-match best chunk → Qwen + newest adapter generate. The same stack the HITL loop improves.",i:"user query",o:"retrieved answer",ca:["find","qwen"],cb:[]},
+  {id:"adapters",l:"adapter registry",s:"model_weights/ · ckpts/adapters",t:"data",c:5,r:1,p:"All stage adapters land here; find_latest_adapter picks the newest for serving.",i:"—",o:"newest adapter",ca:[],cb:["rag","model_service"]},
+  {id:"find",l:"find_latest_adapter()",s:"proposal_engine.py:10",t:"fn",c:5,r:2,p:"Newest dir with adapter_config.json across the registry roots.",i:"roots",o:"adapter dir",ca:[],cb:["rag"]}
+ ],
+ edges:[["compose","tokenizer"],["compose","hitl_svc"],["gateway","tokenizer"],["gateway","alignment"],["gateway","adaptation"],["gateway","hitl_svc"],["qwen","rag"],["qwen","model_service"],["adapters","find"],["find","rag"],["adapters","model_service"],["loadlora","model_service"]]
+}
+]};
+</script>
+<script>
+const COLW=236, ROWH=98, NW=208, PADX=28, TOPY=42;
+const $=s=>document.querySelector(s);
+const el=(t,c,h)=>{const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e;};
+let CUR=null, SEL=null, NODEMAP={};
+
+function buildTabs(){
+  const nav=$("#tabs"); nav.innerHTML="";
+  ATLAS.tabs.forEach((t,i)=>{
+    const b=el("button","tab"+(i===0?" active":""));
+    b.innerHTML=`<span class="dot" style="background:${t.color}"></span>${t.name}`;
+    b.onclick=()=>selectTab(t.id,b);
+    b.dataset.id=t.id; nav.appendChild(b);
+  });
+}
+function selectTab(id,btn){
+  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.id===id));
+  if(!btn) btn=document.querySelector('.tab[data-id="'+id+'"]');
+  CUR=ATLAS.tabs.find(t=>t.id===id);
+  renderStage(CUR); clearPassport();
+  $("#stage").scrollTo({top:0,left:0});
+}
+function clearPassport(){
+  const p=$("#passport"); p.classList.add("empty");
+  const b=p.querySelector(".pp-body"); if(b) b.remove();
+  SEL=null;
+  document.querySelectorAll(".node").forEach(n=>n.classList.remove("sel","dim"));
+  document.querySelectorAll("svg.edges path").forEach(e=>e.classList.remove("hot"));
+}
+function renderStage(tab){
+  const s=$("#stage"); s.innerHTML="";
+  const intro=el("div","intro");
+  intro.appendChild(el("h2",null,tab.title));
+  intro.appendChild(el("p","lede",tab.lede));
+  const io=el("div","io");
+  io.appendChild(el("div","chip in","<b>Inputs</b>"+tab.io.in));
+  io.appendChild(el("div","chip out","<b>Outputs</b>"+tab.io.out));
+  io.appendChild(el("div","chip run","<b>Run</b>"+tab.io.run));
+  intro.appendChild(io); s.appendChild(intro);
+  const wrap=el("div","diagram-wrap"), dia=el("div","diagram");
+  let maxC=0,maxR=0;
+  tab.nodes.forEach(n=>{maxC=Math.max(maxC,n.c);maxR=Math.max(maxR,n.r);});
+  const W=(maxC+1)*COLW+PADX, H=(maxR+1)*ROWH+TOPY+16;
+  dia.style.width=W+"px"; dia.style.height=H+"px"; dia.style.minWidth=W+"px";
+  (tab.swims||[]).forEach((label,c)=>{
+    const x=PADX+c*COLW;
+    if(c>0){const ln=el("div","swim");ln.style.left=(x-14)+"px";ln.style.height=H+"px";dia.appendChild(ln);}
+    const lb=el("div","swimlabel",label); lb.style.left=x+"px"; dia.appendChild(lb);
+  });
+  const svg=document.createElementNS("http://www.w3.org/2000/svg","svg");
+  svg.setAttribute("class","edges"); svg.style.width=W+"px"; svg.style.height=H+"px";
+  dia.appendChild(svg);
+  NODEMAP={};
+  tab.nodes.forEach(n=>{
+    NODEMAP[n.id]=n;
+    const d=el("div","node t-"+n.t+(n.planned?" planned":""));
+    d.style.left=(PADX+n.c*COLW)+"px"; d.style.top=(TOPY+n.r*ROWH)+"px";
+    d.dataset.id=n.id;
+    d.innerHTML=`<div class="nt">${TYPES[n.t]||n.t}</div><div class="nl">${n.l}</div><div class="ns">${n.s}</div>`;
+    d.onclick=()=>selectNode(n.id);
+    dia.appendChild(d);
+  });
+  wrap.appendChild(dia); s.appendChild(wrap);
+  requestAnimationFrame(()=>drawEdges(tab,svg,dia));
+}
+function anchor(nodeEl,dia,side){
+  const r=nodeEl.getBoundingClientRect(), d=dia.getBoundingClientRect();
+  const y=r.top-d.top+r.height/2;
+  return side==="r"?{x:r.left-d.left+r.width,y}:{x:r.left-d.left,y};
+}
+function drawEdges(tab,svg,dia){
+  const NS="http://www.w3.org/2000/svg";
+  tab.edges.forEach(([a,b],i)=>{
+    const ea=dia.querySelector('.node[data-id="'+a+'"]'), eb=dia.querySelector('.node[data-id="'+b+'"]');
+    if(!ea||!eb) return;
+    const na=NODEMAP[a], nb=NODEMAP[b];
+    const fwd = nb.c>=na.c;
+    const p1=anchor(ea,dia,fwd?"r":"l"), p2=anchor(eb,dia,fwd?"l":"r");
+    const dx=Math.max(40,Math.abs(p2.x-p1.x)*0.5);
+    const path=document.createElementNS(NS,"path");
+    let dstr;
+    if(fwd){ dstr=`M${p1.x},${p1.y} C${p1.x+dx},${p1.y} ${p2.x-dx},${p2.y} ${p2.x},${p2.y}`; }
+    else{ // back/loop edge: bow downward
+      const midY=Math.max(p1.y,p2.y)+54;
+      dstr=`M${p1.x},${p1.y} C${p1.x+dx},${midY} ${p2.x-dx},${midY} ${p2.x},${p2.y}`;
+      path.setAttribute("stroke-dasharray","5 4");
+    }
+    path.setAttribute("d",dstr); path.dataset.a=a; path.dataset.b=b;
+    svg.appendChild(path);
+  });
+}
+function selectNode(id){
+  const n=NODEMAP[id]; if(!n) return; SEL=id;
+  const neigh=new Set([id]);
+  CUR.edges.forEach(([a,b])=>{if(a===id)neigh.add(b);if(b===id)neigh.add(a);});
+  document.querySelectorAll(".node").forEach(d=>{
+    const nid=d.dataset.id;
+    d.classList.toggle("sel",nid===id);
+    d.classList.toggle("dim",!neigh.has(nid));
+  });
+  document.querySelectorAll("svg.edges path").forEach(p=>{
+    p.classList.toggle("hot",p.dataset.a===id||p.dataset.b===id);
+  });
+  renderPassport(n);
+}
+function relList(ids,title){
+  if(!ids||!ids.length) return "";
+  const items=ids.map(x=>{
+    const t=NODEMAP[x];
+    if(t) return `<li class="pp-link" data-go="${x}">${t.l} <span class="pp-tag">${t.s}</span></li>`;
+    return `<li>${x} <span class="pp-tag">external</span></li>`;
+  }).join("");
+  return `<div class="pp-sec"><h4>${title}</h4><ul class="pp-list">${items}</ul></div>`;
+}
+function renderPassport(n){
+  const p=$("#passport"); p.classList.remove("empty");
+  let b=p.querySelector(".pp-body"); if(b) b.remove();
+  b=el("div","pp-body");
+  const col={fn:"var(--fn)",model:"var(--model)",data:"var(--data)",gate:"var(--gate)",service:"var(--service)",db:"var(--db)",ext:"var(--ext)",note:"var(--note)"}[n.t];
+  let html=`<span class="pp-kind" style="color:${col};border-color:${col}">${TYPES[n.t]||n.t}</span>`;
+  html+=`<div class="pp-title">${n.l}</div><div class="pp-file">${n.s}</div>`;
+  html+=`<div class="pp-sec"><h4>What it does</h4><p>${n.p}</p></div>`;
+  if(n.i&&n.i!=="—") html+=`<div class="pp-sec"><h4>Inputs</h4><p>${n.i}</p></div>`;
+  if(n.o&&n.o!=="—") html+=`<div class="pp-sec"><h4>Outputs / effects</h4><p>${n.o}</p></div>`;
+  html+=relList(n.ca,"Calls →");
+  html+=relList(n.cb,"← Called by");
+  if(n.go) html+=`<div class="pp-sec"><button class="tab" data-tab="${n.go}" style="color:var(--fn);border-color:var(--fn)">Open the ${n.go} tab →</button></div>`;
+  b.innerHTML=html; p.appendChild(b);
+  b.querySelectorAll("[data-go]").forEach(li=>li.onclick=()=>selectNode(li.dataset.go));
+  const gb=b.querySelector("[data-tab]"); if(gb) gb.onclick=()=>selectTab(gb.dataset.tab);
+  if(window.innerWidth<=860) p.scrollIntoView({behavior:"smooth"});
+}
+function buildLegend(){
+  const types=[["fn","function / step"],["model","nn module"],["data","data / file / table"],["gate","safety / reward gate"],["service","service · endpoint"],["db","db table"],["ext","external lib / model"],["note","variant / planned"]];
+  const L=$("#legend");
+  L.innerHTML=`<h5>Legend <span class="lgtoggle">▾</span></h5><div class="lgs">`+
+    types.map(([k,v])=>`<div class="lg"><span class="sw" style="border-left-color:var(--${k});background:var(--panel)"></span>${v}</div>`).join("")+
+    `</div>`;
+  L.querySelector(".lgtoggle").onclick=()=>L.classList.toggle("min");
+}
+$("#themeBtn").onclick=()=>{
+  const r=document.documentElement;
+  r.setAttribute("data-theme", r.getAttribute("data-theme")==="dark"?"light":"dark");
+  if(CUR) renderStage(CUR); // redraw edges with new colors
+  if(SEL) selectNode(SEL);
+};
+window.addEventListener("resize",()=>{if(CUR){const sv=document.querySelector("svg.edges");const dia=document.querySelector(".diagram");if(sv&&dia){sv.innerHTML="";drawEdges(CUR,sv,dia);if(SEL)selectNode(SEL);}}});
+buildTabs(); buildLegend();
+(function initFromHash(){
+  const h=decodeURIComponent(location.hash.replace(/^#/,""));
+  const [tabId,nodeId]=h.split("/");
+  const t=ATLAS.tabs.find(x=>x.id===tabId);
+  selectTab(t?t.id:ATLAS.tabs[0].id);
+  if(nodeId&&NODEMAP[nodeId]) requestAnimationFrame(()=>selectNode(nodeId));
+})();
+</script>
+</body>
+</html>

@@ -1,6 +1,6 @@
-out_dir: "checkpoints/dgx_sft_124M"
+out_dir: "ckpts/dgx_sft_124M"
 seed: 42
-pretrained_model_path: "checkpoints/dgx_pretrain_124M/latest.pt"
+pretrained_model_path: "ckpts/dgx_pretrain_124M/latest.pt"
 
 tokenizer_path: "artifacts/tokenizer/tokenizer.json"
 tokenizer_config: "artifacts/tokenizer/tokenizer_config.json"

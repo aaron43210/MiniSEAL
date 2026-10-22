@@ -1,6 +1,5 @@
 # src/hitl/api.py
 import os
-import subprocess
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -11,7 +10,7 @@ from src.hitl.schemas import ReviewAction, JobTrigger
 
 app = FastAPI(title="MiniSEAL HITL Dashboard")
 
-db_path = os.environ.get("HITL_DB_PATH", "quarantine.db")
+db_path = os.environ.get("HITL_DB_PATH", "data/quarantine_store.db")
 db = QuarantineDatabase(db_path)
 
 # Serve the static UI files
@@ -23,6 +22,12 @@ def serve_index():
     if not os.path.exists("ui/index.html"):
         return JSONResponse({"error": "UI not built yet"})
     return FileResponse("ui/index.html")
+
+
+@app.get("/health")
+def health():
+    """Lightweight liveness probe used by the gateway."""
+    return {"status": "ok", "service": "hitl"}
 
 @app.get("/api/proposals")
 def get_proposals(status: str = "PENDING"):
@@ -46,11 +51,22 @@ def review_proposal(action: ReviewAction):
     db.update_status(action.proposal_id, action.action)
     return {"message": f"Proposal {action.proposal_id} updated to {action.action}"}
 
-def run_lora_training():
-    # Simple subprocess to trigger the LoRA script
-    print("Triggering LoRA training on approved proposals...")
-    subprocess.run(["python3", "src/hitl/approved_lora_train.py", "--db", db_path])
-    print("LoRA training complete!")
+def run_lora_training(epochs: int, lr: float):
+    """Run LoRA training on approved proposals in-process (no fragile subprocess)."""
+    from src.hitl.approved_lora_train import execute_approved_training
+
+    base_model = os.environ.get("HITL_BASE_MODEL", "Qwen/Qwen2.5-1.5B-Instruct")
+    output_dir = os.environ.get("HITL_ADAPTER_DIR", "ckpts/adapters")
+
+    print(f"Triggering LoRA training on approved proposals (epochs={epochs}, lr={lr})...")
+    path = execute_approved_training(
+        db_path=db_path,
+        base_model_path=base_model,
+        output_dir=output_dir,
+        epochs=epochs,
+        lr=lr,
+    )
+    print(f"LoRA training complete! Adapter: {path}")
 
 @app.post("/api/train_lora")
 def trigger_training(trigger: JobTrigger, background_tasks: BackgroundTasks):
@@ -58,6 +74,8 @@ def trigger_training(trigger: JobTrigger, background_tasks: BackgroundTasks):
     approved_count = len(db.list_proposals("APPROVED"))
     if approved_count == 0:
         raise HTTPException(status_code=400, detail="No approved proposals available for training.")
-        
-    background_tasks.add_task(run_lora_training)
+
+    epochs = trigger.epochs if trigger.epochs is not None else 5
+    lr = trigger.lr if trigger.lr is not None else 1e-4
+    background_tasks.add_task(run_lora_training, epochs, lr)
     return {"message": f"Started LoRA training on {approved_count} approved proposals!"}

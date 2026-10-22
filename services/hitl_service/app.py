@@ -61,7 +61,6 @@ def run_job(trigger: JobTrigger):
     filepath = execute_approved_training(
         config["paths"]["db_path"],
         config["paths"]["base_model_path"],
-        config["paths"]["tokenizer_path"],
         config["paths"]["adapters_dir"],
         epochs, lr
     )
@@ -183,7 +182,6 @@ def dashboard_train():
     execute_approved_training(
         config["paths"]["db_path"],
         config["paths"]["base_model_path"],
-        config["paths"]["tokenizer_path"],
         config["paths"]["adapters_dir"],
         config["hyperparameters"]["epochs"],
         config["hyperparameters"]["lr"]

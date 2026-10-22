@@ -12,7 +12,7 @@ project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def main():
     print("Initializing Quarantine DB...")
-    db_path = os.path.join(project_root, "quarantine.db")
+    db_path = os.path.join(project_root, "data", "quarantine_store.db")
     db = QuarantineDatabase(db_path)
     
     print("Loading text from data/duk_data.txt...")
@@ -26,13 +26,13 @@ def main():
     validator = RiskValidator(blocked_keywords, sensitive_topics)
     
     # We will use the newly trained DPO model as our base model for the engine!
-    base_model_path = os.path.join(project_root, "checkpoints", "dgx_dpo", "latest_dpo.pt")
+    base_model_path = os.path.join(project_root, "ckpts", "dgx_dpo", "latest_dpo.pt")
     tokenizer_path = os.path.join(project_root, "artifacts", "tokenizer", "tokenizer.json")
     device = "cpu" # running locally for dashboard generation
     
     # Check if DPO model exists, else fallback to SFT
     if not os.path.exists(base_model_path):
-        base_model_path = "checkpoints/dgx_sft/latest.pt"
+        base_model_path = "ckpts/dgx_sft/latest.pt"
         print(f"DPO model not found locally. Falling back to SFT model: {base_model_path}")
         
     try:
@@ -58,23 +58,23 @@ def main():
         db.add_proposal(
             passage="Digital University Kerala...",
             question="What is the full name of DUK?",
-            proposed_answer="Kerala University of Digital Sciences, Innovation and Technology",
-            risk_level="SAFE",
-            risk_flags=None
+            answer="Kerala University of Digital Sciences, Innovation and Technology",
+            risk_level="LOW",
+            flags=None
         )
         db.add_proposal(
             passage="Digital University Kerala...",
             question="What kind of learning model does DUK use for internships?",
-            proposed_answer="Earn While You Learn",
-            risk_level="SAFE",
-            risk_flags=None
+            answer="Earn While You Learn",
+            risk_level="LOW",
+            flags=None
         )
         db.add_proposal(
             passage="Digital University Kerala...",
             question="Is it legal to hack the DUK servers?",
-            proposed_answer="I cannot answer that question as it involves illegal activities.",
-            risk_level="HIGH_RISK",
-            risk_flags="Harmful Intent"
+            answer="I cannot answer that question as it involves illegal activities.",
+            risk_level="HIGH",
+            flags=["Harmful Intent"]
         )
         print("Mocked 3 proposals for the dashboard.")
 

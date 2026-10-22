@@ -55,9 +55,11 @@ def format_instruction_prompt(instruction: str) -> str:
         instruction: User instruction text.
 
     Output:
-        Prompt string used during SFT/alignment.
+        Prompt string used during SFT/alignment. Delegates to the single shared
+        formatter so SFT, DPO, and inference never drift apart.
     """
-    return f"### Instruction:\n{instruction.strip()}\n\n### Response:\n"
+    from src.common.prompts import format_prompt
+    return format_prompt(instruction)
 
 
 def format_response(response: str) -> str:

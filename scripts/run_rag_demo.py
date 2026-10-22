@@ -80,8 +80,8 @@ def main():
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
-                max_new_tokens=100,
-                temperature=0.7,
+                max_new_tokens=512,  # Increased to prevent cutting off mid-sentence
+                temperature=0.1,     # Lowered for more precise, factual answers
                 do_sample=True,
                 pad_token_id=tokenizer.eos_token_id
             )

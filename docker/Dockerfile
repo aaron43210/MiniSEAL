@@ -14,6 +14,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Create physical placeholders for dynamic mounting
-RUN mkdir -p data/raw data/alignment data/self_adapt checkpoints runs
+RUN mkdir -p data/raw data/alignment data/self_adapt ckpts runs
 
 EXPOSE 8001 8002 8003 8080

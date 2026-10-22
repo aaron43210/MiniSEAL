@@ -1,7 +1,7 @@
 paths:
   db_path: "data/quarantine_store.db"
-  adapters_dir: "checkpoints/adapters"
-  base_model_path: "checkpoints/model_aligned_dpo.pt"
+  adapters_dir: "ckpts/adapters"
+  base_model_path: "Qwen/Qwen2.5-1.5B-Instruct"
   tokenizer_path: "artifacts/tokenizer/tokenizer.json"
 
 hyperparameters:

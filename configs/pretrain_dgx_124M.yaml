@@ -14,14 +14,14 @@ model:
   rope_theta: 10000.0
 
 data:
-  train_bin: "data/bin/train.bin"
-  train_meta: "data/bin/train.meta.json"
-  val_bin: "data/bin/val.bin"
-  val_meta: "data/bin/val.meta.json"
+  train_bin: "data/tokenized/train.bin"
+  train_meta: "data/tokenized/train.meta.json"
+  val_bin: "data/tokenized/val.bin"
+  val_meta: "data/tokenized/val.meta.json"
 
 train:
-  out_dir: "checkpoints/dgx_pretrain_124M"
-  resume_from: "checkpoints/dgx_pretrain_124M/latest.pt"
+  out_dir: "ckpts/dgx_pretrain_124M"
+  resume_from: "ckpts/dgx_pretrain_124M/latest.pt"
   precision: "bf16"
   learning_rate: 3.0e-4
   min_lr: 3.0e-5

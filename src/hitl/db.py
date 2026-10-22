@@ -65,3 +65,31 @@ class QuarantineDatabase:
             cursor = conn.cursor()
             cursor.execute("UPDATE quarantine_proposals SET status = ? WHERE id = ?", (new_status, proposal_id))
             conn.commit()
+
+    def record_adapter_job(self, job_status: str, run_loss: float = None, adapter_path: str = None) -> int:
+        """Append an audit-trail row for a LoRA adaptation job and return its id."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO adapter_jobs (job_status, run_loss, adapter_path) VALUES (?, ?, ?)",
+                (job_status, run_loss, adapter_path),
+            )
+            conn.commit()
+            return cursor.lastrowid
+
+    def update_adapter_job(self, job_id: int, job_status: str, run_loss: float = None, adapter_path: str = None):
+        """Update a previously created adapter job (e.g. RUNNING -> SUCCESS/FAILED)."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE adapter_jobs SET job_status = ?, run_loss = ?, adapter_path = ? WHERE id = ?",
+                (job_status, run_loss, adapter_path, job_id),
+            )
+            conn.commit()
+
+    def list_adapter_jobs(self) -> List[Dict[str, Any]]:
+        """Return all adapter jobs, newest first (serving/rollback registry)."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM adapter_jobs ORDER BY id DESC")
+            return [dict(row) for row in cursor.fetchall()]

@@ -1,0 +1,34 @@
+# SEAL (Self-Adapting LLM) self-edit config -- HuggingFace Qwen + LoRA.
+# Run: python3 -m src.train.seal --config configs/seal_qwen.yaml
+out_dir: "model_weights/dgx_seal"
+seed: 42
+pretrained_model_path: "Qwen/Qwen2.5-1.5B-Instruct"
+
+# Each line: {"passage": ..., "qa_pairs": [{"q": ..., "a": ...}, ...]}
+self_adapt_data_path: "data/self_adapt/squad_mini.jsonl"
+max_passages: 20          # cap passages used per adaptation run (null = all)
+
+# Held-out eval split (makes the reward a GENERALIZATION signal, not memorization).
+# Per passage we train on some Q&A and score on the rest. The headline metric is
+# improvement on the held-out set; the adapt-set improvement is only a sanity check.
+holdout_frac: 0.34        # fraction of each passage's Q&A reserved for eval (>=1)
+min_qa_per_passage: 2     # passages with fewer Q&A can't be split -> skipped
+split_seed: 42            # fixed, so the train/eval split is reproducible
+results_path: "runs/self_adapt/results.json"
+
+# Adaptation (inner-loop LoRA) hyperparameters
+epochs: 5
+learning_rate: 1.0e-4
+lora_r: 16
+lora_alpha: 32
+lora_dropout: 0.0
+
+# SEAL accept/reject gate: keep the adapter only if the token-F1 reward improves
+# by at least this margin over the un-adapted baseline.
+accept_margin: 0.0
+
+# Safety gate: screen every self-edit and drop HIGH-risk pairs before training.
+enforce_safety: true
+
+# Greedy decoding budget used when scoring baseline vs adapted answers.
+max_new_tokens: 32

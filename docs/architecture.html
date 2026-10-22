@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Self-Owned LLM — Architecture Atlas</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --line:#2d3645;
+    --fg:#e6edf3; --dim:#9aa7b5; --accent:#58a6ff; --accent2:#a371f7;
+    --ok:#3fb950; --warn:#d29922; --bad:#f85149; --chip:#21324a;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  [data-theme="light"]{
+    --bg:#f6f8fa; --panel:#fff; --panel2:#f0f3f7; --line:#d8dee4;
+    --fg:#1f2328; --dim:#5a6472; --accent:#0969da; --accent2:#8250df; --chip:#dfeaf7;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);line-height:1.5}
+  header{position:sticky;top:0;z-index:10;background:var(--panel);border-bottom:1px solid var(--line);
+    padding:14px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  header h1{font-size:16px;margin:0;font-weight:650;letter-spacing:.2px}
+  header .sub{color:var(--dim);font-size:12px}
+  header .spacer{flex:1}
+  button{font-family:inherit;cursor:pointer}
+  .toggle{background:var(--panel2);color:var(--fg);border:1px solid var(--line);
+    border-radius:7px;padding:6px 12px;font-size:12.5px}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;padding:12px 20px 0}
+  .tab{background:transparent;color:var(--dim);border:1px solid transparent;border-radius:8px 8px 0 0;
+    padding:9px 15px;font-size:13px;font-weight:550}
+  .tab:hover{color:var(--fg)}
+  .tab.active{color:var(--fg);background:var(--panel);border-color:var(--line);border-bottom-color:var(--panel)}
+  main{max-width:1120px;margin:0 auto;padding:22px 20px 80px}
+  .lead{color:var(--dim);font-size:14px;max-width:70ch;margin:0 0 20px}
+  .lead b{color:var(--fg);font-weight:600}
+  h2{font-size:20px;margin:26px 0 4px}
+  h3{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin:26px 0 10px;font-weight:650}
+  .badge{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;
+    background:var(--chip);color:var(--accent);border:1px solid var(--line);margin-left:6px}
+  .badge.live{color:var(--ok)} .badge.offline{color:var(--warn)}
+  /* layout + components */
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:8px 0}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .stat .k{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em}
+  .stat .v{font-size:18px;font-weight:650;font-family:var(--mono);margin-top:3px}
+  table{width:100%;border-collapse:collapse;margin:6px 0;font-size:13px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+  th{color:var(--dim);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+  td.mono,.mono{font-family:var(--mono)}
+  .fn{background:var(--panel);border:1px solid var(--line);border-radius:10px;margin:9px 0;overflow:hidden}
+  .fn>summary{list-style:none;cursor:pointer;padding:12px 14px;display:flex;gap:10px;align-items:baseline}
+  .fn>summary::-webkit-details-marker{display:none}
+  .fn>summary .sig{font-family:var(--mono);font-size:13px;color:var(--accent);font-weight:600}
+  .fn>summary .file{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--dim)}
+  .fn[open]>summary{border-bottom:1px solid var(--line);background:var(--panel2)}
+  .fn .body{padding:12px 14px;font-size:13.5px}
+  .io{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+  .io .box{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:9px 11px}
+  .io .box .lab{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin-bottom:4px}
+  .io .box .val{font-family:var(--mono);font-size:12.5px}
+  .io .box.in{border-left:3px solid var(--accent)} .io .box.out{border-left:3px solid var(--ok)}
+  .flow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:14px 0 6px}
+  .node{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 13px;font-size:12.5px;font-weight:550}
+  .node small{display:block;color:var(--dim);font-weight:400;font-family:var(--mono);font-size:10.5px}
+  .node.k{border-color:var(--accent)} .node.g{border-color:var(--ok)} .node.p{border-color:var(--accent2)}
+  .arrow{color:var(--dim);font-size:18px}
+  svg{max-width:100%;height:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;margin:10px 0}
+  .svgcap{color:var(--dim);font-size:12px;margin:-2px 0 14px}
+  svg text{fill:var(--fg);font-family:var(--sans);font-size:13px}
+  svg text.s{font-size:11px;fill:var(--dim);font-family:var(--mono)}
+  svg .sb{fill:var(--panel2);stroke:var(--line);stroke-width:1.5}
+  svg .sa{stroke:var(--accent);stroke-width:2} svg .so{stroke:var(--ok);stroke-width:2}
+  svg .sp{stroke:var(--accent2);stroke-width:2}
+  svg .edge{stroke:var(--dim);stroke-width:1.8;fill:none;marker-end:url(#ar)}
+  marker path{fill:var(--dim)}
+  .note{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--accent2);
+    border-radius:8px;padding:11px 14px;font-size:13px;margin:14px 0;color:var(--fg)}
+  code{font-family:var(--mono);background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:.9em}
+  .panel[hidden]{display:none}
+  footer{max-width:1120px;margin:0 auto;padding:0 20px 40px;color:var(--dim);font-size:12px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z"/></marker>
+</defs></svg>
+<header>
+  <h1>Self-Owned LLM · Architecture Atlas</h1>
+  <span class="sub">from-scratch pretraining → Qwen alignment (SFT · DPO · SEAL · HITL)</span>
+  <span class="spacer"></span>
+  <button class="toggle" id="themeBtn">◐ Theme</button>
+</header>
+<nav class="tabs" id="tabs"></nav>
+<main id="app"></main>
+<footer>Self-contained reference · click a function to expand its inputs → outputs · press 1–7 to switch tabs · ◐ toggles theme.</footer>
+<script>
+const DATA = [
+{
+  id:'overview', title:'Overview',
+  lead:`This project has <b>two tracks</b>. The <b>from-scratch track</b> (offline) builds and pretrains a
+    custom decoder-only LLM to prove the fundamentals. The <b>Qwen track</b> (live) does the practical
+    alignment — <b>SFT → DPO → SEAL</b> — on <code>Qwen/Qwen2.5-1.5B-Instruct</code> with LoRA, governed by a
+    human-in-the-loop (<b>HITL</b>) approval layer. Pick a tab to see each stage's functions, inputs/outputs and hyperparameters.`,
+  svg:`<svg viewBox="0 0 1000 340" role="img" aria-label="Two-track pipeline">
+    <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L7,3 L0,6 Z" fill="currentColor" class="dim"/></marker></defs>
+    <text x="20" y="34" class="s">OFFLINE · from-scratch learning track</text>
+    <rect class="sb sp" x="20" y="48" width="160" height="48" rx="9"/><text x="100" y="70" text-anchor="middle">Raw corpus</text><text x="100" y="86" text-anchor="middle" class="s">wikitext-2</text>
+    <rect class="sb sp" x="230" y="48" width="160" height="48" rx="9"/><text x="310" y="70" text-anchor="middle">BPE tokenizer</text><text x="310" y="86" text-anchor="middle" class="s">vocab 8000</text>
+    <rect class="sb sp" x="440" y="48" width="180" height="48" rx="9"/><text x="530" y="70" text-anchor="middle">Pretrain decoder</text><text x="530" y="86" text-anchor="middle" class="s">LLaMA-style ~91M</text>
+    <path class="edge" d="M180,72 L228,72"/><path class="edge" d="M390,72 L438,72"/>
+    <text x="20" y="150" class="s">LIVE · Qwen alignment track</text>
+    <rect class="sb sa" x="20" y="164" width="150" height="48" rx="9"/><text x="95" y="186" text-anchor="middle">Qwen2.5-1.5B</text><text x="95" y="202" text-anchor="middle" class="s">base + LoRA</text>
+    <rect class="sb sa" x="210" y="164" width="130" height="48" rx="9"/><text x="275" y="190" text-anchor="middle">SFT</text>
+    <rect class="sb sa" x="380" y="164" width="130" height="48" rx="9"/><text x="445" y="190" text-anchor="middle">DPO</text>
+    <rect class="sb sa" x="550" y="164" width="130" height="48" rx="9"/><text x="615" y="190" text-anchor="middle">SEAL</text>
+    <rect class="sb so" x="720" y="164" width="150" height="48" rx="9"/><text x="795" y="186" text-anchor="middle">RAG / serve</text><text x="795" y="202" text-anchor="middle" class="s">base + adapter</text>
+    <path class="edge" d="M170,188 L208,188"/><path class="edge" d="M340,188 L378,188"/><path class="edge" d="M510,188 L548,188"/><path class="edge" d="M680,188 L718,188"/>
+    <rect class="sb" x="380" y="268" width="300" height="48" rx="9"/><text x="530" y="290" text-anchor="middle">HITL governance</text><text x="530" y="306" text-anchor="middle" class="s">draft → risk-screen → approve → train</text>
+    <path class="edge" d="M530,268 L560,214"/>
+  </svg>`,
+  svgcap:'Offline track (top) is kept for the learning requirement; the live Qwen track (bottom) is the runnable system.',
+  fns:[]
+},
+{
+  id:'pretrain', title:'1 · Pretraining', track:'offline',
+  lead:`A <b>LLaMA-style decoder-only transformer built from scratch</b> in PyTorch — the "self-owned model"
+    that proves the fundamentals. Modern components throughout: <b>RMSNorm</b> (pre-norm), <b>RoPE</b>,
+    <b>SwiGLU</b> MLP, fused <b>scaled-dot-product attention</b>, and weight-tied embeddings. Trained on the DGX;
+    the <code>.pt</code> weights are gitignored (not in the repo).`,
+  stats:[['Params','~91M'],['Layers','12'],['Heads','12'],['d_model','768'],['Context','1024'],['Vocab','8000'],
+    ['Optimizer','AdamW'],['Precision','bf16'],['Max steps','50000'],['Eff. batch','128'],['LR','3e-4→3e-5'],['Dropout','0.1']],
+  svg:`<svg viewBox="0 0 1000 200" role="img" aria-label="Transformer block">
+    <path class="edge" d="M176,46 C 320,8 400,8 540,42"/><path class="edge" d="M604,46 C 744,8 824,8 952,42"/>
+    <rect class="sb" x="16" y="66" width="128" height="48" rx="9"/><text x="80" y="88" text-anchor="middle">Embed</text><text x="80" y="104" text-anchor="middle" class="s">tied</text>
+    <rect class="sb" x="180" y="66" width="104" height="48" rx="9"/><text x="232" y="94" text-anchor="middle">RMSNorm</text>
+    <rect class="sb sa" x="328" y="66" width="178" height="48" rx="9"/><text x="417" y="88" text-anchor="middle">Self-Attention</text><text x="417" y="104" text-anchor="middle" class="s">RoPE · SDPA · causal</text>
+    <rect class="sb" x="524" y="72" width="40" height="36" rx="18"/><text x="544" y="95" text-anchor="middle">⊕</text>
+    <rect class="sb" x="604" y="66" width="104" height="48" rx="9"/><text x="656" y="94" text-anchor="middle">RMSNorm</text>
+    <rect class="sb sp" x="748" y="66" width="162" height="48" rx="9"/><text x="829" y="88" text-anchor="middle">SwiGLU MLP</text><text x="829" y="104" text-anchor="middle" class="s">down(SiLU(gate)·up)</text>
+    <rect class="sb" x="946" y="72" width="40" height="36" rx="18"/><text x="966" y="95" text-anchor="middle">⊕</text>
+    <path class="edge" d="M144,90 L178,90"/><path class="edge" d="M284,90 L326,90"/><path class="edge" d="M506,90 L522,90"/><path class="edge" d="M564,90 L602,90"/><path class="edge" d="M708,90 L746,90"/><path class="edge" d="M910,90 L944,90"/>
+    <text x="500" y="160" text-anchor="middle" class="s">× 12 blocks → final RMSNorm → tied LM head → logits [B, T, 8000]</text>
+  </svg>`,
+  svgcap:'One pre-norm transformer block (×12). Curved paths are the residual connections into each ⊕.',
+  note:`<b>Honest status:</b> the full pretrain→SFT→DPO chain was never run to completion in the repo (every
+    config chains off a <code>latest.pt</code> produced on the DGX). Also fix the data path: the encoder writes
+    to <code>data/tokenized/</code> but <code>pretrain_dgx_124M.yaml</code> reads <code>data/bin/</code>.`,
+  fns:[
+    {sig:'ModelConfig(...)',file:'src/model/config.py',purpose:'Dataclass of every architecture hyperparameter; .to_dict() serializes it.',in:'n_layer, n_head, n_embd, block_size, vocab_size, dropout, rope_theta…',out:'config object'},
+    {sig:'RMSNorm.forward(x)',file:'src/model/layers.py',purpose:'Root-mean-square normalization (fp32 upcast for AMP stability).',in:'x  [B, T, C]',out:'normed  [B, T, C]'},
+    {sig:'RotaryEmbedding.forward(q, k)',file:'src/model/layers.py',purpose:'Applies rotary position encoding to queries and keys.',in:'q, k  [B, H, T, hd]',out:'rotated q, k'},
+    {sig:'CausalSelfAttention.forward(x)',file:'src/model/layers.py',purpose:'Multi-head causal attention via F.scaled_dot_product_attention with RoPE.',in:'x  [B, T, C]',out:'[B, T, C]'},
+    {sig:'SwiGLUMLP.forward(x)',file:'src/model/layers.py',purpose:'Gated feed-forward: down(SiLU(gate(x)) * up(x)), LLaMA hidden-dim rounding.',in:'x  [B, T, C]',out:'[B, T, C]'},
+    {sig:'TransformerBlock.forward(x)',file:'src/model/layers.py',purpose:'Pre-norm block: x += attn(norm(x)); x += mlp(norm(x)).',in:'x  [B, T, C]',out:'x  [B, T, C]'},
+    {sig:'DecoderOnlyTransformer.forward(idx, targets=None)',file:'src/model/llm.py',purpose:'Full forward pass; computes cross-entropy loss when targets are given.',in:'idx [B,T], targets [B,T]|None',out:'(logits [B,T,V], loss|None)'},
+    {sig:'DecoderOnlyTransformer.generate(idx, max_new_tokens, temperature, top_k, eos_token_id)',file:'src/model/llm.py',purpose:'Autoregressive sampling with temperature / top-k / EOS stop.',in:'idx [B, T0]',out:'idx [B, T0+n]'},
+    {sig:'get_lr(step, cfg)',file:'src/train/pretrain.py',purpose:'Linear warmup then cosine decay to min_lr.',in:'step:int, cfg',out:'lr:float'},
+    {sig:'configure_optimizer(model, cfg)',file:'src/train/pretrain.py',purpose:'AdamW; weight-decay on dim≥2 params only; fused on CUDA.',in:'model, cfg',out:'torch.optim.AdamW'},
+    {sig:'save_checkpoint(...)',file:'src/train/pretrain.py',purpose:'Writes latest.pt + ckpt_step_N.pt (model + optimizer + scaler + config).',in:'model, optimizer, step, cfg',out:'.pt files on disk'},
+    {sig:'TokenBinDataset.__getitem__(idx)',file:'src/data/bin_dataset.py',purpose:'Returns one contiguous training block; y is x shifted by one.',in:'idx:int',out:'(x, y) each [block_size]'},
+    {sig:'train_bpe_tokenizer(input_dir, output_dir, vocab_size, min_frequency)',file:'src/tokenizer/train_bpe.py',purpose:'Trains a ByteLevel-BPE tokenizer with <|pad|>/<|bos|>/<|eos|>/<|unk|>.',in:'dir of .txt files',out:'tokenizer.json + tokenizer_config.json'},
+    {sig:'encode_and_write(input_dir, tokenizer_path, …, output_dir, val_fraction)',file:'src/tokenizer/encode_corpus.py',purpose:'Encodes the corpus (one doc per line, +<|eos|>) into uint16 memmap bins.',in:'raw .txt + tokenizer',out:'train.bin / val.bin + meta'},
+  ]
+},
+{
+  id:'sft', title:'2 · SFT', track:'live',
+  lead:`<b>Supervised fine-tuning</b> teaches the base <code>Qwen2.5-1.5B-Instruct</code> to follow instructions by
+    imitating gold <code>{prompt, response}</code> pairs. We train only a small <b>LoRA</b> adapter (q_proj/v_proj)
+    with the HuggingFace <code>Trainer</code>, so a 1.5B model fine-tunes cheaply without touching base weights.`,
+  stats:[['Base','Qwen2.5-1.5B'],['Adapter','LoRA r16/α32'],['Targets','q_proj,v_proj'],['Dropout','0.05'],
+    ['LR','3e-5'],['Max steps','100'],['Micro batch','4'],['Grad accum','4']],
+  flow:[{t:'sft.jsonl',sub:'prompt / response',cls:''},{t:'chat template',sub:'tokenize + mask',cls:''},
+    {t:'Qwen + LoRA',sub:'HF Trainer',cls:'k'},{t:'final_adapter',sub:'PEFT dir',cls:'g'}],
+  note:`Currently trains on the generic 2000-row Alpaca-style <code>data/alignment/sft.jsonl</code>, not the DUK RAG
+    dataset — swap <code>sft_data_path</code> to specialize on domain data.`,
+  fns:[
+    {sig:'main()',file:'src/train/sft.py',purpose:'Loads Qwen, wraps it with LoRA, tokenizes the dataset, trains with HF Trainer, saves the adapter.',in:'--config configs/sft_rag_duk.yaml',out:'model_weights/dgx_sft_rag/final_adapter'},
+    {sig:'tokenize_function(example)',file:'src/train/sft.py',purpose:'Renders {prompt,response} through the chat template, then tokenizes with truncation.',in:'{prompt, response}',out:'{input_ids, attention_mask}'},
+    {sig:'DataCollatorForLanguageModeling(mlm=False)',file:'transformers',purpose:'Dynamically pads each batch and sets labels = input_ids for causal-LM loss.',in:'list of tokenized rows',out:'batch tensors + labels'},
+  ]
+},
+{
+  id:'dpo', title:'3 · DPO', track:'live',
+  lead:`<b>Direct Preference Optimization</b> aligns the model to human preference pairs
+    <code>{prompt, chosen, rejected}</code> — no reward model needed. Loss:
+    <code>-log σ( β · [(logπ(chosen) − logπ_ref(chosen)) − (logπ(reject) − logπ_ref(reject))] )</code>.
+    Trick: the <b>reference</b> is the <b>same model with the LoRA adapter disabled</b>, so only one model sits in memory.`,
+  stats:[['Base','Qwen2.5-1.5B'],['Adapter','LoRA r16/α32'],['β','0.1'],['Epochs','1'],
+    ['LR','5e-6'],['Data','preferences.jsonl'],['Max pairs','500'],['Max length','1024']],
+  flow:[{t:'preferences.jsonl',sub:'prompt/chosen/rejected',cls:''},{t:'encode pair',sub:'mask prompt',cls:''},
+    {t:'policy vs reference',sub:'adapter on / off',cls:'p'},{t:'DPO loss',sub:'-logσ(β·Δ)',cls:'k'},{t:'dpo_adapter',sub:'PEFT dir',cls:'g'}],
+  note:`Set <code>sft_adapter_path</code> in the config to start DPO from your SFT adapter — then the reference is the
+    SFT model and the new LoRA learns only the preference delta (SFT → DPO → SEAL as one chain).`,
+  fns:[
+    {sig:'_load_pairs(data_path, max_pairs)',file:'src/train/dpo_qwen.py',purpose:'Reads preference rows, drops blanks, optionally caps the count.',in:'preferences.jsonl',out:'[(prompt, chosen, rejected)]'},
+    {sig:'_encode_pair(tokenizer, prompt, answer, device, max_length)',file:'src/train/dpo_qwen.py',purpose:'Chat-templates (prompt, answer) and masks the prompt tokens; returns None if over-long.',in:'prompt, answer strings',out:'(input_ids, labels)  |  None'},
+    {sig:'_seq_logp(model, x, y)',file:'src/train/dpo_qwen.py',purpose:'Summed log-probability of the answer (non-masked) tokens of one sequence.',in:'x [1,T], y [1,T]',out:'scalar log-prob'},
+    {sig:'main()',file:'src/train/dpo_qwen.py',purpose:'Computes policy (adapter on) vs reference (adapter off) logps, the DPO loss, trains the LoRA, saves it.',in:'--config configs/dpo_qwen.yaml',out:'model_weights/dgx_dpo_qwen/dpo_adapter_v*'},
+    {sig:'dpo_loss(pol_ch, pol_rej, ref_ch, ref_rej, beta)',file:'src/alignment/losses.py',purpose:'Canonical DPO loss + reward-accuracy / margin metrics (shared math).',in:'4 log-probs + β',out:'(loss, metrics)'},
+  ]
+},
+{
+  id:'seal', title:'4 · SEAL', track:'live',
+  lead:`<b>SEAL = Self-Adapting LLM.</b> The model incorporates new knowledge from a passage by training a LoRA on
+    "self-edits" (its Q&A about that passage) — and <b>keeps the adapter only if it actually helps</b>, measured by a
+    token-F1 reward. This build adds a <b>held-out split</b>: we adapt on <i>some</i> of a passage's Q&A and score on
+    <i>different, unseen</i> Q&A of the same passage, so the reward measures <b>generalization, not memorization</b>.
+    A safety gate drops HIGH-risk self-edits before any compute is spent.`,
+  stats:[['Base','Qwen2.5-1.5B'],['Adapter','LoRA r16/α32'],['Epochs','5'],['LR','1e-4'],
+    ['Hold-out','0.34 / passage'],['Accept margin','0.0'],['Reward','token-F1'],['Split seed','42']],
+  flow:[{t:'squad_mini',sub:'passage + QA',cls:''},{t:'split',sub:'adapt / held-out',cls:'p'},
+    {t:'safety gate',sub:'drop HIGH-risk',cls:''},{t:'baseline',sub:'F1 on held-out',cls:''},
+    {t:'train LoRA',sub:'on adapt-set',cls:'k'},{t:'adapted',sub:'F1 on held-out',cls:''},
+    {t:'accept gate',sub:'Δ ≥ margin?',cls:'p'},{t:'seal_adapter',sub:'+ results.json',cls:'g'}],
+  note:`The accept/reject gate now fires on <b>held-out</b> improvement. Expect adapt-set gains &gt; held-out gains —
+    that gap is the memorization you are separating out. For a convincing number, point the data at <b>novel facts</b>
+    the base model can't already know (SQuAD/Wikipedia is largely in Qwen's pretraining).`,
+  fns:[
+    {sig:'_load_grouped(data_path, max_passages)',file:'src/train/seal.py',purpose:'Loads squad-style rows as per-passage groups (grouping is required for the within-passage split).',in:'squad_mini.jsonl',out:'[{passage, qa:[{q,a}]}]'},
+    {sig:'_split_adapt_heldout(groups, holdout_frac, min_qa, seed)',file:'src/train/seal.py',purpose:'Seeded per-passage split into an adapt set and a held-out eval set; skips passages with < min_qa.',in:'groups',out:'(adapt_edits, heldout_edits, skipped)'},
+    {sig:'_apply_safety_gate(edits)',file:'src/train/seal.py',purpose:'Drops HIGH-risk self-edits via RiskValidator before training.',in:'edits',out:'safe edits'},
+    {sig:'_greedy_answer(model, tokenizer, passage, question, device, max_new_tokens)',file:'src/train/seal.py',purpose:'Deterministic greedy generation so baseline vs adapted rewards are comparable.',in:'passage, question',out:'answer string'},
+    {sig:'_evaluate(model, tokenizer, edits, device, max_new_tokens)',file:'src/train/seal.py',purpose:'Mean token-F1 of greedy answers over a QA set.',in:'edits',out:'mean token-F1 (float)'},
+    {sig:'_build_sample(tokenizer, passage, question, answer, device)',file:'src/train/seal.py',purpose:'Tokenizes one self-edit with the prompt masked (loss falls only on the answer).',in:'passage, q, a',out:'(input_ids, labels)'},
+    {sig:'main()',file:'src/train/seal.py',purpose:'baseline(held-out) → train LoRA on adapt-set → adapted(held-out) → accept if Δ ≥ margin → save.',in:'--config configs/seal_qwen.yaml',out:'seal_adapter + runs/self_adapt/results.json'},
+  ]
+},
+{
+  id:'hitl', title:'5 · HITL', track:'live',
+  lead:`<b>Human-in-the-loop governance.</b> Qwen drafts candidate answers, a rule-based <b>RiskValidator</b> screens
+    them, and every draft lands in a <b>quarantine SQLite store</b> as PENDING. A human APPROVES or REJECTS in the UI,
+    and a LoRA is trained <b>only on APPROVED rows</b> — with every training job written to an <code>adapter_jobs</code>
+    audit table. This is the "never auto-ingest unreviewed model output" safety layer.`,
+  stats:[['Store','SQLite'],['Risk levels','LOW / MED / HIGH'],['UI','uvicorn :8543'],['Adapter','LoRA r16/α32'],
+    ['Epochs','5'],['LR','1e-4'],['Screens','keyword · PII']],
+  flow:[{t:'Qwen draft',sub:'per question',cls:'k'},{t:'RiskValidator',sub:'keyword / PII',cls:''},
+    {t:'quarantine DB',sub:'PENDING',cls:'p'},{t:'human review',sub:'approve / reject',cls:''},
+    {t:'train LoRA',sub:'APPROVED only',cls:'k'},{t:'adapter + audit',sub:'adapter_jobs',cls:'g'}],
+  fns:[
+    {sig:'ProposalEngine.extract_and_stage(passage, questions)',file:'src/hitl/proposal_engine.py',purpose:'Qwen drafts an answer per question, risk-screens it, writes PENDING rows to the quarantine DB.',in:'passage, [questions]',out:'count of proposals staged'},
+    {sig:'find_latest_adapter(search_roots)',file:'src/hitl/proposal_engine.py',purpose:'Finds the newest PEFT adapter from ANY stage by adapter_config.json across the given roots.',in:'[dirs]',out:'adapter dir  |  None'},
+    {sig:'RiskValidator.analyze(question, answer)',file:'src/hitl/validators.py',purpose:'Rule-based keyword / sensitive-topic / PII (email, IP) scan.',in:'question, answer',out:'(LOW|MEDIUM|HIGH, flags)'},
+    {sig:'QuarantineDatabase.add_proposal / list_proposals / update_status',file:'src/hitl/db.py',purpose:'SQLite quarantine store; proposals move PENDING → APPROVED / REJECTED / TRAINED.',in:'fields / status',out:'row id / rows'},
+    {sig:'QuarantineDatabase.record_adapter_job / update_adapter_job',file:'src/hitl/db.py',purpose:'Audit trail — one row per LoRA training job (status, loss, adapter path).',in:'job status',out:'job id'},
+    {sig:'execute_approved_training(db_path, base_model_path, output_dir, epochs, lr)',file:'src/hitl/approved_lora_train.py',purpose:'Trains a Qwen LoRA on APPROVED rows only, saves a versioned adapter, flips rows to TRAINED.',in:'db + base model',out:'lora_adapter_v* path'},
+  ]
+},
+{
+  id:'rag', title:'6 · RAG / Serve', track:'live',
+  lead:`<b>Retrieval-augmented serving.</b> Document chunks from <code>data/duk_data.txt</code> are embedded with
+    <code>all-MiniLM-L6-v2</code>; at query time the top chunk by cosine similarity is injected as context into a Qwen
+    prompt, and generation runs on Qwen with the <b>newest trained LoRA adapter attached</b> (SFT / SEAL / HITL / DPO).`,
+  stats:[['Embedder','all-MiniLM-L6-v2'],['Retriever','cosine top-1'],['Generator','Qwen + LoRA'],['Source','duk_data.txt']],
+  flow:[{t:'query',sub:'user question',cls:''},{t:'embed',sub:'MiniLM',cls:''},{t:'retrieve',sub:'cosine top-1',cls:'p'},
+    {t:'prompt + context',sub:'chat template',cls:''},{t:'Qwen + adapter',sub:'generate',cls:'k'},{t:'answer',sub:'',cls:'g'}],
+  note:`Adapter discovery was fixed: <code>find_latest_adapter()</code> now matches any dir containing
+    <code>adapter_config.json</code>, so adapters produced by SFT/SEAL/HITL/DPO are actually found (the old code only
+    matched <code>adapter_v*</code> and silently never loaded them).`,
+  fns:[
+    {sig:'load_chunks(file_path, max_chars=1500, overlap=200)',file:'scripts/run_rag.py',purpose:'Sliding-window chunking of the source document at natural boundaries.',in:'text file',out:'[chunk strings]'},
+    {sig:'find_latest_adapter(search_roots)',file:'scripts/run_rag.py',purpose:'Loads the newest PEFT adapter (any stage) onto base Qwen for serving.',in:'[dirs]',out:'adapter dir  |  None'},
+    {sig:'main()',file:'scripts/run_rag.py',purpose:'Embeds chunks, then an interactive loop: retrieve top chunk → prompt Qwen(+adapter) → answer.',in:'stdin query',out:'generated answer'},
+  ]
+}
+];
+const app=document.getElementById('app'), tabsEl=document.getElementById('tabs');
+const statTile=s=>`<div class="stat"><div class="k">${s[0]}</div><div class="v">${s[1]}</div></div>`;
+const node=n=>`<div class="node ${n.cls||''}">${n.t}${n.sub?`<small>${n.sub}</small>`:''}</div>`;
+const flowRow=f=>`<div class="flow">${f.map((n,i)=>node(n)+(i<f.length-1?'<span class="arrow">→</span>':'')).join('')}</div>`;
+const fnCard=f=>`<details class="fn"><summary><span class="sig">${f.sig}</span><span class="file">${f.file||''}</span></summary>`+
+  `<div class="body">${f.purpose||''}`+
+  ((f.in||f.out)?`<div class="io"><div class="box in"><div class="lab">input</div><div class="val">${f.in||'—'}</div></div>`+
+   `<div class="box out"><div class="lab">output</div><div class="val">${f.out||'—'}</div></div></div>`:'')+
+  `</div></details>`;
+function render(s){
+  let h=`<p class="lead">${s.lead||''}</p>`;
+  if(s.stats) h+=`<div class="grid">${s.stats.map(statTile).join('')}</div>`;
+  if(s.flow) h+=flowRow(s.flow);
+  if(s.svg){ h+=s.svg; if(s.svgcap) h+=`<p class="svgcap">${s.svgcap}</p>`; }
+  if(s.note) h+=`<div class="note">${s.note}</div>`;
+  if(s.fns&&s.fns.length) h+=`<h3>Functions · input → output</h3>`+s.fns.map(fnCard).join('');
+  return h;
+}
+function select(i){
+  tabsEl.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',+b.dataset.i===i));
+  app.querySelectorAll('.panel').forEach(p=>p.hidden=(+p.dataset.i!==i));
+  window.scrollTo(0,0);
+}
+tabsEl.innerHTML=DATA.map((s,i)=>`<button class="tab" data-i="${i}">${s.title}${s.track?`<span class="badge ${s.track}">${s.track}</span>`:''}</button>`).join('');
+app.innerHTML=DATA.map((s,i)=>`<section class="panel" data-i="${i}" ${i?'hidden':''}><h2>${s.title}</h2>${render(s)}</section>`).join('');
+tabsEl.querySelectorAll('.tab').forEach(b=>b.onclick=()=>select(+b.dataset.i));
+document.getElementById('themeBtn').onclick=()=>{const r=document.documentElement;r.dataset.theme=r.dataset.theme==='light'?'dark':'light';};
+document.addEventListener('keydown',e=>{if(/INPUT|TEXTAREA/.test(e.target.tagName))return;const n=parseInt(e.key);if(n>=1&&n<=DATA.length)select(n-1);});
+select(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+# HITL (Human-In-The-Loop) LoRA training config -- HuggingFace Qwen + LoRA.
+# Trains ONLY on human-approved data. DB-first: if the quarantine store has
+# APPROVED proposals they are used; otherwise falls back to the JSONL below.
+# Run: python3 -m src.train.hitl --config configs/hitl_qwen.yaml
+out_dir: "model_weights/dgx_hitl"
+seed: 42
+pretrained_model_path: "Qwen/Qwen2.5-1.5B-Instruct"
+
+# Primary source: APPROVED rows in the quarantine SQLite DB (real HITL flow).
+hitl_db_path: "data/quarantine_store.db"
+
+# Fallback source: a JSONL of human-approved {"prompt","response"} pairs.
+hitl_data_path: "data/hitl/approved_feedback.jsonl"
+
+# LoRA training hyperparameters
+epochs: 5
+learning_rate: 1.0e-4
+lora_r: 16
+lora_alpha: 32
+lora_dropout: 0.05
