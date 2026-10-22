@@ -1,3 +1,23 @@
+---
+language:
+- en
+license: mit
+tags:
+- pytorch
+- causal-lm
+- lora
+- peft
+- qwen
+- sft
+- dpo
+- seal
+- self-adaptation
+- hitl
+base_model:
+- Qwen/Qwen2.5-1.5B-Instruct
+pipeline_tag: text-generation
+---
+
 # Self-Owned LLM — From-Scratch Pretraining + Qwen Alignment (SFT · DPO · SEAL · HITL)
 
 A capstone that (1) implements a decoder-only LLM **from scratch** in PyTorch to prove the
